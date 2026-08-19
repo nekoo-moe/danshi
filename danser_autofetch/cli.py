@@ -76,12 +76,13 @@ def main():
         description="Auto-fetch beatmaps and render osu! replay files (.osr) into 1080p 60FPS videos using Danser across Windows, Linux, and macOS."
     )
     parser.add_argument("replay", nargs="?", help="Path to the osu! replay file (.osr)")
-    parser.add_argument("-s", "--skin", help="Skin name or keyword to use for rendering (e.g. 'rafis', 'whitecat')")
+    parser.add_argument("-s", "--skin", help="Skin name, keyword, file path (.osk/.zip), or direct download URL")
+    parser.add_argument("--import-skin", "--add-skin", help="Import a new skin from a local file (.osk/.zip) or direct download URL")
     parser.add_argument("-d", "--danser-dir", default=default_danser, help=f"Path to Danser directory (default: {default_danser})")
     parser.add_argument("-o", "--output-dir", default=default_output, help=f"Directory to store output MP4 videos (default: {default_output})")
     parser.add_argument("--exports-dir", default=default_exports, help=f"osu! lazer exports directory (default: {default_exports})")
     parser.add_argument("--list-skins", action="store_true", help="List all available skins and exit")
-    parser.add_argument("--sync-skins", action="store_true", help="Sync/import all skins from osu! exports into Danser")
+    parser.add_argument("--sync-skins", action="store_true", help="Sync/import all skins from osu! exports and Downloads folders")
     parser.add_argument("--fps", type=int, default=60, help="Output video framerate (default: 60)")
     parser.add_argument("-v", "--version", action="version", version=f"danser-autofetch {__version__}")
 
@@ -105,10 +106,18 @@ def main():
         osu_exports_dir=args.exports_dir
     )
 
-    # Automatically sync skins from lazer exports
-    imported = skin_manager.sync_from_osu_exports()
+    # 1. Direct Skin Import Flag
+    if args.import_skin:
+        imported_name = skin_manager.import_skin(args.import_skin)
+        if imported_name:
+            print(f"🎉 Successfully added new skin: '{imported_name}'!")
+            print("You can now use it with: danser-record <replay.osr> -s " + f'"{imported_name}"')
+        return
+
+    # 2. Auto-sync skins from exports & Downloads
+    imported = skin_manager.sync_from_sources()
     if imported > 0:
-        print(f"📦 Synchronized {imported} new skin(s) from osu! exports directory.")
+        print(f"📦 Synchronized {imported} new skin(s) into Danser library.")
 
     if args.list_skins:
         skins = skin_manager.list_skins()
@@ -149,13 +158,13 @@ def main():
         if not success:
             print("⚠️ Warning: Beatmap could not be auto-downloaded. Proceeding with existing local database...")
 
-    # Skin matching
+    # Skin matching or on-the-fly import
     selected_skin = None
     if args.skin:
         matched = skin_manager.match_skin(args.skin)
         if matched:
             selected_skin = matched
-            print(f"🎨 Using Matched Skin: '{selected_skin}'")
+            print(f"🎨 Using Skin: '{selected_skin}'")
         else:
             selected_skin = args.skin
             print(f"🎨 Using Custom Skin: '{selected_skin}'")

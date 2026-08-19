@@ -13,7 +13,10 @@
 ## ✨ Features
 
 - ⚡ **Zero-Manual Beatmap Auto-Fetching**: Automatically parses the `.osr` replay's beatmap MD5 checksum and downloads the full `.osz` package from high-speed mirrors (*Catboy / Mino, Sayobot, Chimu*) in seconds.
-- 🎨 **Smart Skin Manager & Fuzzy Matching**: Automatically imports and unpacks `.osk` / `.zip` skin archives from osu! lazer's exports folder. Supports fuzzy skin name search (e.g., `-s rafis`, `-s whitecat`).
+- 🎨 **Dynamic Skin Importer & Smart Manager**:
+  - Automatically imports & unpacks `.osk` / `.zip` skin archives from osu! exports and `Downloads` folders.
+  - **On-the-fly skin install**: Pass any local `.osk` file path or direct download URL into `-s` to install and render immediately.
+  - Supports fuzzy skin search (e.g., `-s rafis`, `-s whitecat`).
 - 🎧 **Native Skin Cursor & Hitsounds**: Enforces full skin hitsounds (clap, whistle, soft, drum), skin cursor, and skin combo colors.
 - ⏭️ **Auto-Skip Intro**: Automatically skips opening lead-in wait and seizure warnings to jump straight to the first circle.
 - 🎬 **1080p 60FPS Rendering**: Frame-by-frame rendering with no stutter or dropped frames, exported directly into your Videos folder.
@@ -40,13 +43,12 @@ pip install -e .
 
 ## 🚀 Usage
 
-### Basic Usage
-Simply pass your exported `.osr` replay file:
+### 1. Basic Usage
 ```bash
 danser-record /path/to/replay.osr
 ```
 
-### Render with a Specific Skin (Fuzzy Search)
+### 2. Choose a Skin (Fuzzy Search)
 ```bash
 # Matches "Rafis 2018-03-26 HDDT (blue cursor)"
 danser-record /path/to/replay.osr -s rafis
@@ -55,13 +57,22 @@ danser-record /path/to/replay.osr -s rafis
 danser-record /path/to/replay.osr -s whitecat
 ```
 
-### List Available Skins
+### 3. Add & Use a New Skin Directly (.osk file or URL)
 ```bash
-danser-record --list-skins
+# Drag-and-drop a .osk file directly to render with it:
+danser-record /path/to/replay.osr -s ~/Downloads/MyNewSkin.osk
+
+# Or import a skin permanently:
+danser-record --import-skin ~/Downloads/MyNewSkin.osk
+danser-record --import-skin https://example.com/skins/AwesomeSkin.osk
 ```
 
-### Sync Skins from osu! exports
+### 4. List & Sync Skins
 ```bash
+# List all installed skins
+danser-record --list-skins
+
+# Sync any new .osk files from Downloads or osu! exports
 danser-record --sync-skins
 ```
 
@@ -72,13 +83,14 @@ danser-record --sync-skins
 | Argument | Description | Default |
 | :--- | :--- | :--- |
 | `replay` | Path to the osu! replay file (`.osr`) | *Required* |
-| `-s, --skin` | Skin name or keyword to use for rendering | Default Skin |
+| `-s, --skin` | Skin name, keyword, `.osk` file path, or URL | Default Skin |
+| `--import-skin` | Import a new skin from `.osk`/`.zip` or URL | |
 | `-d, --danser-dir` | Path to Danser installation folder | Auto-detected |
 | `-o, --output-dir` | Directory to save rendered MP4 videos | `~/Videos/danser_records` |
 | `--exports-dir` | Path to osu! lazer `exports/` folder | Auto-detected |
 | `--fps` | Framerate of the output video | `60` |
 | `--list-skins` | List all available skins in Danser | |
-| `--sync-skins` | Synchronize skins from osu! exports | |
+| `--sync-skins` | Synchronize skins from osu! exports & Downloads | |
 | `-v, --version` | Show program version | |
 
 ---
@@ -87,12 +99,12 @@ danser-record --sync-skins
 
 ### Cách thức hoạt động:
 1. Bạn chỉ cần xuất file replay **`.osr`** từ trong **osu! lazer**.
-2. Chạy lệnh: `danser-record <file.osr> -s <tên_skin>`
+2. Chạy lệnh: `danser-record <file.osr> -s <tên_skin_hoặc_file_osk>`
 3. Công cụ sẽ:
    - Đọc mã MD5 của bài hát từ file replay.
    - **Tự động tải ngầm bài hát gốc (`.osz`)** từ các máy chủ nhanh nhất về thư viện Danser.
-   - Tự động nạp Skin (cursor, hitsound, màu sắc).
-   - Tự động bỏ qua phần intro mở đầu và render video **Full HD 1080p 60FPS**.
+   - **Tự động nạp Skin**: Cho phép chọn skin có sẵn, kéo thả trực tiếp file `.osk` hoặc dán link URL skin.
+   - Tự động nạp Cursor + Hitsound của Skin, bỏ qua intro và render video **Full HD 1080p 60FPS**.
    - Lưu video vào thư mục `Videos/danser_records/`.
 
 ---
