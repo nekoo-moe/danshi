@@ -45,7 +45,7 @@ exports.DanserInstaller = void 0;
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const adm_zip_1 = __importDefault(require("adm-zip"));
-const USER_AGENT = 'danser-autofetch/1.2.0 (https://github.com/heiznerd/danser-autofetch)';
+const USER_AGENT = 'danser-autofetch/1.3.0 (https://github.com/heiznerd/danser-autofetch)';
 const GITHUB_API_URL = 'https://api.github.com/repos/Wieku/danser-go/releases/latest';
 class DanserInstaller {
     static getPlatformKeyword() {

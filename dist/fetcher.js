@@ -40,7 +40,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.BeatmapFetcher = void 0;
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
-const USER_AGENT = 'danser-autofetch/1.2.0 (https://github.com/heiznerd/danser-autofetch)';
+const USER_AGENT = 'danser-autofetch/1.3.0 (https://github.com/heiznerd/danser-autofetch)';
 class BeatmapFetcher {
     songsDir;
     constructor(songsDir) {
