@@ -7,4 +7,5 @@ export * from './fetcher';
 export * from './skins';
 export * from './renderer';
 export * from './calculator';
+export * from './installer';
 //# sourceMappingURL=index.d.ts.map

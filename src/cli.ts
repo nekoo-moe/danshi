@@ -11,6 +11,7 @@ import { BeatmapFetcher } from './fetcher';
 import { SkinManager } from './skins';
 import { DanserRenderer } from './renderer';
 import { PPCalculator } from './calculator';
+import { DanserInstaller } from './installer';
 import { SystemPaths } from './types';
 
 const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf-8'));
@@ -99,18 +100,19 @@ export async function run(): Promise<void> {
 
   printBanner();
 
-  const renderer = new DanserRenderer(options.danserDir, options.outputDir);
-
-  if (!fs.existsSync(renderer.danserDir)) {
-    console.error(`❌ Error: Danser directory not found at: ${renderer.danserDir}`);
-    console.error('Please download Danser from https://github.com/Wieku/danser-go/releases');
-    console.error('or specify --danser-dir /path/to/danser');
+  // 1. Auto-detect or Auto-install Danser on first boot
+  let danserDir = options.danserDir;
+  try {
+    danserDir = await DanserInstaller.ensureInstalled(options.danserDir);
+  } catch (err: any) {
+    console.error(`❌ Error setting up Danser: ${err.message}`);
     process.exit(1);
   }
 
+  const renderer = new DanserRenderer(danserDir, options.outputDir);
   const skinManager = new SkinManager(path.join(renderer.danserDir, 'Skins'), options.exportsDir);
 
-  // 1. Explicit Skin Import
+  // 2. Explicit Skin Import
   if (options.importSkin) {
     const importedName = await skinManager.importSkin(options.importSkin);
     if (importedName) {
@@ -120,14 +122,14 @@ export async function run(): Promise<void> {
     return;
   }
 
-  // 2. Manual Skin Sync
+  // 3. Manual Skin Sync
   if (options.syncSkins) {
     const imported = await skinManager.syncFromSources();
     console.log(`📦 Synchronized ${imported} skin(s) from system folders into Danser.`);
     return;
   }
 
-  // 3. List Skins
+  // 4. List Skins
   if (options.listSkins) {
     const skins = skinManager.listSkins();
     if (skins.length > 0) {

@@ -47,6 +47,7 @@ const fetcher_1 = require("./fetcher");
 const skins_1 = require("./skins");
 const renderer_1 = require("./renderer");
 const calculator_1 = require("./calculator");
+const installer_1 = require("./installer");
 const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf-8'));
 function getDefaultPaths() {
     const home = process.env.HOME || process.env.USERPROFILE || '';
@@ -126,15 +127,18 @@ async function run() {
     const options = program.opts();
     const replayArg = program.args[0];
     printBanner();
-    const renderer = new renderer_1.DanserRenderer(options.danserDir, options.outputDir);
-    if (!fs.existsSync(renderer.danserDir)) {
-        console.error(`❌ Error: Danser directory not found at: ${renderer.danserDir}`);
-        console.error('Please download Danser from https://github.com/Wieku/danser-go/releases');
-        console.error('or specify --danser-dir /path/to/danser');
+    // 1. Auto-detect or Auto-install Danser on first boot
+    let danserDir = options.danserDir;
+    try {
+        danserDir = await installer_1.DanserInstaller.ensureInstalled(options.danserDir);
+    }
+    catch (err) {
+        console.error(`❌ Error setting up Danser: ${err.message}`);
         process.exit(1);
     }
+    const renderer = new renderer_1.DanserRenderer(danserDir, options.outputDir);
     const skinManager = new skins_1.SkinManager(path.join(renderer.danserDir, 'Skins'), options.exportsDir);
-    // 1. Explicit Skin Import
+    // 2. Explicit Skin Import
     if (options.importSkin) {
         const importedName = await skinManager.importSkin(options.importSkin);
         if (importedName) {
@@ -143,13 +147,13 @@ async function run() {
         }
         return;
     }
-    // 2. Manual Skin Sync
+    // 3. Manual Skin Sync
     if (options.syncSkins) {
         const imported = await skinManager.syncFromSources();
         console.log(`📦 Synchronized ${imported} skin(s) from system folders into Danser.`);
         return;
     }
-    // 3. List Skins
+    // 4. List Skins
     if (options.listSkins) {
         const skins = skinManager.listSkins();
         if (skins.length > 0) {
