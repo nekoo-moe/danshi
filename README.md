@@ -1,4 +1,4 @@
-# 🎵 Danser AutoFetch
+# Danser AutoFetch
 
 [![Python Version](https://img.shields.io/badge/Python-3.8%2B-blue.svg)](https://python.org)
 [![Danser-go](https://img.shields.io/badge/Danser--go-v0.11%2B-brightgreen.svg)](https://github.com/Wieku/danser-go)
@@ -6,33 +6,61 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 
-> **Automated osu! Replay Video Renderer with Multi-Mirror Beatmap Auto-Fetcher & Smart Skin Manager for Danser-go (Cross-Platform).**
+Danser AutoFetch is a lightweight, cross-platform CLI automation tool that bridges **osu! lazer** and **[danser-go](https://github.com/Wieku/danser-go)**. It automatically parses exported replay files (`.osr`), fetches missing beatmaps and audio from high-speed mirror networks, manages custom skins, and renders smooth 1080p 60FPS video replays with zero manual file management.
 
 ---
 
-## ✨ Features
-
-- ⚡ **Zero-Manual Beatmap Auto-Fetching**: Automatically parses the `.osr` replay's beatmap MD5 checksum and downloads the full `.osz` package from high-speed mirrors (*Catboy / Mino, Sayobot, Chimu*) in seconds.
-- 🎨 **Dynamic Skin Importer & Smart Manager**:
-  - Automatically imports & unpacks `.osk` / `.zip` skin archives from osu! exports and `Downloads` folders.
-  - **On-the-fly skin install**: Pass any local `.osk` file path or direct download URL into `-s` to install and render immediately.
-  - Supports fuzzy skin search (e.g., `-s rafis`, `-s whitecat`).
-- 🎧 **Native Skin Cursor & Hitsounds**: Enforces full skin hitsounds (clap, whistle, soft, drum), skin cursor, and skin combo colors.
-- ⏭️ **Auto-Skip Intro**: Automatically skips opening lead-in wait and seizure warnings to jump straight to the first circle.
-- 🎬 **1080p 60FPS Rendering**: Frame-by-frame rendering with no stutter or dropped frames, exported directly into your Videos folder.
-- 🌍 **Cross-Platform**: Fully tested and supported on **Windows, Linux, and macOS**.
-- 🪶 **Zero External Python Dependencies**: Built entirely using the Python 3 standard library.
+> **Note on Compatibility / Lưu ý tương thích:**
+>
+> **EN:** This tool is designed and optimized specifically for **osu! lazer**. If you are using **osu! stable**, please consider using the upstream **[danser-go](https://github.com/Wieku/danser-go)** project directly to support the original author.
+>
+> **VI:** Hoạt động tốt nhất khi sử dụng phiên bản **osu!lazer**, nếu bạn sử dụng bản **osu! stable**, hãy sử dụng trực tiếp **[danser-go](https://github.com/Wieku/danser-go)** để ủng hộ dự án chính.
 
 ---
 
-## 📥 Installation
+## Overview & Architecture
+
+In **osu! lazer**, beatmaps, audio files, and background images are stored as fragmented, content-addressed hash blobs managed inside a Realm database (`client.realm`) rather than human-readable folders. Because Danser-go was originally architected for osu! stable's traditional folder hierarchy, rendering a replay exported from osu! lazer previously required manually downloading `.osz` files or extracting beatmap archives.
+
+Danser AutoFetch solves this by implementing an on-the-fly resolution pipeline:
+1. **Binary Replay Parsing:** Reads the `.osr` replay stream to extract the beatmap MD5 checksum, player name, score, accuracy, and mods.
+2. **Multi-Mirror Auto-Fetcher:** Queries multiple community mirror APIs (*Catboy / Mino, Sayobot, Chimu*) to resolve the Beatmap Set ID and automatically download missing `.osz` packages in the background.
+3. **On-Demand Skin Management:** Imports local skin archives (`.osk`, `.zip`), directories, or direct URLs on demand with zero bloat.
+4. **Automated Danser Execution:** Injects native skin cursors, skin hitsounds, skips lead-in delays, resolves FFmpeg binaries, and encodes 1080p 60FPS video output.
+
+---
+
+## Strengths & Advantages (Điểm mạnh)
+
+- **Single-Command Workflow:** Transforms exported `.osr` files into high-definition MP4 videos without requiring any manual beatmap searching or downloading.
+- **Multi-Source Fallback System:** Uses a resilient waterfall fallback across multiple mirror APIs (*Catboy -> Sayobot -> Chimu*) to ensure beatmaps are retrieved even if one service is offline.
+- **Zero-Default Skin Architecture:** Does not poll or clutter system directories by default. Skins are loaded purely on-demand via local path, directory, URL, or keyword.
+- **True Skin Asset Fidelity:** Automatically forces skin hitsounds (`IgnoreBeatmapSamples`), skin cursors (`UseSkinCursor`), long cursor trails, and skin combo colors.
+- **Lead-In Optimization:** Automatically bypasses opening intro pauses and warnings to jump straight to active drain gameplay.
+- **No External Dependencies:** Built entirely with the Python 3 standard library (`urllib`, `struct`, `json`, `subprocess`, `zipfile`).
+- **Cross-Platform Compatibility:** Native support and path auto-detection for Linux, Windows, and macOS.
+
+---
+
+## Limitations & Technical Considerations (Điểm yếu & Giới hạn)
+
+- **Network Dependency for New Maps:** Auto-fetching requires an active internet connection the first time an uncached beatmap is rendered.
+- **Unranked / Unsubmitted Map Limitations:** If a replay was played on a completely private or unsubmitted local map that does not exist on public osu! mirrors, the `.osz` cannot be fetched automatically and must be placed manually in Danser's `Songs` folder.
+- **Gamemode Scope:** Danser-go is specifically designed for standard osu! gameplay (`Mode: 0`). Replays for Taiko, Catch the Beat, or osu!mania are not rendered by Danser.
+- **Hardware-Dependent Encoding Speed:** Video rendering speed is determined by your CPU/GPU hardware specifications.
+
+---
+
+## Installation
 
 ### 1. Prerequisites
-Ensure you have **[danser-go](https://github.com/Wieku/danser-go/releases)** installed on your machine.
-- **Linux**: Usually placed in `~/Applications/danser` or `~/.danser`.
-- **Windows**: Place `danser` anywhere (e.g., `%LOCALAPPDATA%\Programs\danser` or inside this repo).
+Download and extract the latest release of **[danser-go](https://github.com/Wieku/danser-go/releases)**:
+- **Linux:** Default location is `~/Applications/danser` or `~/.danser`.
+- **Windows:** Extract to any directory (e.g., `%LOCALAPPDATA%\Programs\danser` or next to this repository).
+- **macOS:** Default location is `~/Applications/danser` or `~/Library/Application Support/danser`.
 
 ### 2. Install Danser AutoFetch
+Clone this repository and install it locally:
 ```bash
 git clone https://github.com/heiznerd/danser-autofetch.git
 cd danser-autofetch
@@ -41,73 +69,94 @@ pip install -e .
 
 ---
 
-## 🚀 Usage
+## Usage Guide
 
-### 1. Basic Usage
+### Basic Rendering
+Pass the path to any exported `.osr` replay file:
 ```bash
 danser-record /path/to/replay.osr
 ```
 
-### 2. Choose a Skin (Fuzzy Search)
+### Rendering with Custom Skins
+You can supply a skin name, a local `.osk`/`.zip` file path, a skin folder, or a download URL:
+
 ```bash
-# Matches "Rafis 2018-03-26 HDDT (blue cursor)"
+# Using a fuzzy keyword for an already installed skin:
 danser-record /path/to/replay.osr -s rafis
-
-# Matches "vv_whitecat_cursor ([Garin] + Aristia + Various)"
 danser-record /path/to/replay.osr -s whitecat
+
+# Using a local .osk file path (Linux / macOS):
+danser-record /path/to/replay.osr -s "/home/user/Downloads/MySkin.osk"
+
+# Using a local .osk file path (Windows):
+danser-record replay.osr -s "C:\Users\Name\Downloads\MySkin.osk"
+
+# Using a direct skin download URL:
+danser-record /path/to/replay.osr -s "https://example.com/skins/CustomSkin.osk"
 ```
 
-### 3. Add & Use a New Skin Directly (.osk file or URL)
+### Managing Skins
 ```bash
-# Drag-and-drop a .osk file directly to render with it:
-danser-record /path/to/replay.osr -s ~/Downloads/MyNewSkin.osk
-
-# Or import a skin permanently:
-danser-record --import-skin ~/Downloads/MyNewSkin.osk
-danser-record --import-skin https://example.com/skins/AwesomeSkin.osk
-```
-
-### 4. List & Sync Skins
-```bash
-# List all installed skins
+# List all currently installed skins:
 danser-record --list-skins
 
-# Sync any new .osk files from Downloads or osu! exports
+# Permanently import a skin without rendering:
+danser-record --import-skin "/path/to/skin.osk"
+
+# Manually synchronize skins from osu! exports and Downloads folders:
 danser-record --sync-skins
 ```
 
 ---
 
-## 🛠️ CLI Options
+## Command-Line Options Reference
 
 | Argument | Description | Default |
 | :--- | :--- | :--- |
-| `replay` | Path to the osu! replay file (`.osr`) | *Required* |
-| `-s, --skin` | Skin name, keyword, `.osk` file path, or URL | Default Skin |
-| `--import-skin` | Import a new skin from `.osk`/`.zip` or URL | |
-| `-d, --danser-dir` | Path to Danser installation folder | Auto-detected |
-| `-o, --output-dir` | Directory to save rendered MP4 videos | `~/Videos/danser_records` |
-| `--exports-dir` | Path to osu! lazer `exports/` folder | Auto-detected |
+| `replay` | Path to the target osu! replay file (`.osr`) | *Required for rendering* |
+| `-s, --skin` | Skin keyword, local archive path (`.osk`/`.zip`), folder path, or download URL | Default Skin |
+| `--import-skin` | Import and unpack a skin into Danser without starting a render | None |
+| `-d, --danser-dir` | Custom path to Danser installation directory | Auto-detected |
+| `-o, --output-dir` | Destination directory for exported MP4 videos | `~/Videos/danser_records` |
+| `--exports-dir` | Custom path to osu! lazer `exports/` folder | Auto-detected |
 | `--fps` | Framerate of the output video | `60` |
-| `--list-skins` | List all available skins in Danser | |
-| `--sync-skins` | Synchronize skins from osu! exports & Downloads | |
-| `-v, --version` | Show program version | |
+| `--list-skins` | Print all installed skins and exit | Disabled |
+| `--sync-skins` | Manually scan and import skins from system folders | Disabled |
+| `-v, --version` | Display program version | |
 
 ---
 
-## 🇻🇳 Hướng dẫn sử dụng (Tiếng Việt)
+## Hướng dẫn chi tiết (Tiếng Việt)
 
-### Cách thức hoạt động:
-1. Bạn chỉ cần xuất file replay **`.osr`** từ trong **osu! lazer**.
-2. Chạy lệnh: `danser-record <file.osr> -s <tên_skin_hoặc_file_osk>`
-3. Công cụ sẽ:
-   - Đọc mã MD5 của bài hát từ file replay.
-   - **Tự động tải ngầm bài hát gốc (`.osz`)** từ các máy chủ nhanh nhất về thư viện Danser.
-   - **Tự động nạp Skin**: Cho phép chọn skin có sẵn, kéo thả trực tiếp file `.osk` hoặc dán link URL skin.
-   - Tự động nạp Cursor + Hitsound của Skin, bỏ qua intro và render video **Full HD 1080p 60FPS**.
-   - Lưu video vào thư mục `Videos/danser_records/`.
+### Tổng quan
+Trong **osu! lazer**, toàn bộ dữ liệu bài hát và nhạc nền được mã hóa dạng hash bên trong cơ sở dữ liệu `client.realm`. Do đó, khi xuất file replay `.osr`, người dùng không thể đưa trực tiếp vào Danser-go như bản osu! stable ngày trước.
+
+**Danser AutoFetch** tự động hóa toàn bộ quy trình này:
+1. **Phân tích replay `.osr`**: Trích xuất mã MD5 bài hát, tên người chơi, mods và điểm số.
+2. **Tự động tải nhạc ngầm**: Tìm kiếm và tải file `.osz` gốc từ các mirror server (*Catboy, Sayobot, Chimu*) về Danser trong vài giây.
+3. **Cơ chế nạp Skin linh hoạt**: Nhận diện đường dẫn file `.osk`, thư mục hoặc link tải trực tiếp mà không cần cài đặt thủ công.
+4. **Xuất video chuẩn 1080p 60FPS**: Tự động áp dụng Hitsound của Skin, con trỏ chuột, bỏ qua intro và lưu video vào thư mục `Videos/danser_records`.
 
 ---
 
-## 📄 License
-This project is licensed under the [MIT License](LICENSE).
+### Điểm mạnh & Điểm yếu
+
+#### Điểm mạnh:
+- **Tự động hóa 100%**: Chỉ cần 1 lệnh duy nhất với file `.osr` là có video hoàn chỉnh.
+- **Hệ thống tải dự phòng đa nguồn**: Tự động chuyển đổi giữa các máy chủ nếu có một máy chủ gặp sự cố.
+- **Không rác hệ thống**: Khởi đầu với 0 skin mặc định, chỉ nạp đúng skin người dùng yêu cầu.
+- **Tương thích đa nền tảng**: Chạy tốt trên cả Windows, Linux và macOS.
+- **Không phụ thuộc thư viện ngoài**: Hoạt động hoàn toàn trên thư viện chuẩn của Python 3.
+
+#### Điểm yếu:
+- **Cần kết nối Internet lần đầu**: Khi render một bài hát mới chưa có trong máy, tool cần mạng để tải file nhạc gốc.
+- **Chỉ hỗ trợ osu! chuẩn (Standard)**: Giới hạn theo Danser-go, chỉ render chế độ chơi Standard (`Mode: 0`), không áp dụng cho Taiko, Catch, hay Mania.
+- **Không tải được map chưa từng upload**: Các bài hát tự tạo cục bộ chưa từng upload lên hệ thống osu! sẽ không có trên server mirror và cần copy thủ công vào thư mục `Songs`.
+
+---
+
+## License & Credits
+
+- Core rendering engine powered by **[danser-go](https://github.com/Wieku/danser-go)** by **Wieku**.
+- Beatmap resolution powered by community mirrors: **Catboy / Mino**, **Sayobot**, and **Chimu**.
+- Licensed under the **[MIT License](LICENSE)**.
