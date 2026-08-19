@@ -110,6 +110,16 @@ export async function run(): Promise<void> {
   }
 
   const renderer = new DanserRenderer(danserDir, options.outputDir);
+  
+  // Ensure Danser configuration is pre-configured and written immediately
+  renderer.configureSettings({
+    useSkinCursor: true,
+    useSkinHitsounds: true,
+    useSkinColors: true,
+    skipLeadIn: true,
+    fps: options.fps,
+  });
+
   const skinManager = new SkinManager(path.join(renderer.danserDir, 'Skins'), options.exportsDir);
 
   // 2. Explicit Skin Import
@@ -205,14 +215,6 @@ export async function run(): Promise<void> {
       console.log(`Using Custom Skin: '${selectedSkin}'`);
     }
   }
-
-  renderer.configureSettings({
-    useSkinCursor: true,
-    useSkinHitsounds: true,
-    useSkinColors: true,
-    skipLeadIn: true,
-    fps: options.fps,
-  });
 
   const startTime = Date.now();
   const exitCode = await renderer.runRecord(replayPath, selectedSkin, program.args.slice(1));

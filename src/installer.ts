@@ -90,6 +90,13 @@ export class DanserInstaller {
       : this.getDefaultInstallDir();
 
     if (this.isDanserInstalled(installDir)) {
+      // Ensure essential subdirectories and configuration exist
+      const songsDir = path.join(installDir, 'Songs');
+      const skinsDir = path.join(installDir, 'Skins');
+      const replaysDir = path.join(installDir, 'Replays');
+      fs.mkdirSync(songsDir, { recursive: true });
+      fs.mkdirSync(skinsDir, { recursive: true });
+      fs.mkdirSync(replaysDir, { recursive: true });
       return installDir;
     }
 
@@ -162,12 +169,60 @@ export class DanserInstaller {
       }
 
       // Initialize default subdirectories
-      const subdirs = ['Songs', 'Skins', 'Replays', 'settings', 'videos'];
-      for (const sub of subdirs) {
-        const p = path.join(installDir, sub);
-        if (!fs.existsSync(p)) {
-          fs.mkdirSync(p, { recursive: true });
-        }
+      const songsDir = path.join(installDir, 'Songs');
+      const skinsDir = path.join(installDir, 'Skins');
+      const replaysDir = path.join(installDir, 'Replays');
+      const settingsDir = path.join(installDir, 'settings');
+      const videosDir = path.join(installDir, 'videos');
+
+      fs.mkdirSync(songsDir, { recursive: true });
+      fs.mkdirSync(skinsDir, { recursive: true });
+      fs.mkdirSync(replaysDir, { recursive: true });
+      fs.mkdirSync(settingsDir, { recursive: true });
+      fs.mkdirSync(videosDir, { recursive: true });
+
+      // Pre-seed default.json so Danser never attempts to query osu! stable AppData\Local\osu!\Songs
+      const defaultSettingsFile = path.join(settingsDir, 'default.json');
+      if (!fs.existsSync(defaultSettingsFile)) {
+        fs.writeFileSync(
+          defaultSettingsFile,
+          JSON.stringify(
+            {
+              General: {
+                OsuSongsDir: songsDir,
+                OsuSkinsDir: skinsDir,
+                OsuReplaysDir: replaysDir,
+                DiscordPresenceOn: true,
+                UnpackOszFiles: true,
+                VerboseImportLogs: false,
+              },
+              Audio: {
+                IgnoreBeatmapSamples: true,
+              },
+              Skin: {
+                UseColorsFromSkin: true,
+                Cursor: {
+                  UseSkinCursor: true,
+                },
+              },
+              Gameplay: {
+                PPVersion: 'latest',
+                LeadInTime: 0,
+                LeadInHold: 0,
+                SeizureWarning: {
+                  Enabled: false,
+                },
+                PPCounter: {
+                  Show: true,
+                  ShowPPComponents: true,
+                },
+              },
+            },
+            null,
+            4
+          ),
+          'utf-8'
+        );
       }
 
       console.log(`[SUCCESS] Danser-go has been successfully installed to: ${installDir}\n`);

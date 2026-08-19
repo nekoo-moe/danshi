@@ -86,13 +86,16 @@ export class DanserRenderer {
   }
 
   configureSettings(options: DanserConfigOptions = {}): void {
-    if (!fs.existsSync(this.settingsFile)) {
-      return;
-    }
-
     try {
-      const raw = fs.readFileSync(this.settingsFile, 'utf-8');
-      const cfg = JSON.parse(raw);
+      let cfg: any = {};
+      if (fs.existsSync(this.settingsFile)) {
+        try {
+          const raw = fs.readFileSync(this.settingsFile, 'utf-8');
+          cfg = JSON.parse(raw);
+        } catch {
+          cfg = {};
+        }
+      }
 
       const useSkinCursor = options.useSkinCursor ?? true;
       const useSkinHitsounds = options.useSkinHitsounds ?? true;
@@ -101,11 +104,20 @@ export class DanserRenderer {
       const fps = options.fps ?? 60;
       const resolution = options.resolution ?? [1920, 1080];
 
-      // Paths
+      // Ensure critical directories exist on disk before Danser starts
+      const songsDir = path.join(this.danserDir, 'Songs');
+      const skinsDir = path.join(this.danserDir, 'Skins');
+      const replaysDir = path.join(this.danserDir, 'Replays');
+      fs.mkdirSync(songsDir, { recursive: true });
+      fs.mkdirSync(skinsDir, { recursive: true });
+      fs.mkdirSync(replaysDir, { recursive: true });
+      fs.mkdirSync(path.dirname(this.settingsFile), { recursive: true });
+
+      // Always configure General paths explicitly to Danser's internal folders
       cfg.General = cfg.General || {};
-      cfg.General.OsuSongsDir = path.join(this.danserDir, 'Songs');
-      cfg.General.OsuSkinsDir = path.join(this.danserDir, 'Skins');
-      cfg.General.OsuReplaysDir = path.join(this.danserDir, 'Replays');
+      cfg.General.OsuSongsDir = songsDir;
+      cfg.General.OsuSkinsDir = skinsDir;
+      cfg.General.OsuReplaysDir = replaysDir;
       cfg.General.UnpackOszFiles = true;
 
       // Skin

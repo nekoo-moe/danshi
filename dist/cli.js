@@ -137,6 +137,14 @@ async function run() {
         process.exit(1);
     }
     const renderer = new renderer_1.DanserRenderer(danserDir, options.outputDir);
+    // Ensure Danser configuration is pre-configured and written immediately
+    renderer.configureSettings({
+        useSkinCursor: true,
+        useSkinHitsounds: true,
+        useSkinColors: true,
+        skipLeadIn: true,
+        fps: options.fps,
+    });
     const skinManager = new skins_1.SkinManager(path.join(renderer.danserDir, 'Skins'), options.exportsDir);
     // 2. Explicit Skin Import
     if (options.importSkin) {
@@ -225,13 +233,6 @@ async function run() {
             console.log(`Using Custom Skin: '${selectedSkin}'`);
         }
     }
-    renderer.configureSettings({
-        useSkinCursor: true,
-        useSkinHitsounds: true,
-        useSkinColors: true,
-        skipLeadIn: true,
-        fps: options.fps,
-    });
     const startTime = Date.now();
     const exitCode = await renderer.runRecord(replayPath, selectedSkin, program.args.slice(1));
     let videoGenerated = false;
