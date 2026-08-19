@@ -4,6 +4,7 @@ Command Line Interface for Danser AutoFetch (Cross-Platform).
 
 import os
 import sys
+import time
 import argparse
 from typing import Optional
 from danser_autofetch import __version__
@@ -153,7 +154,7 @@ def main():
     beatmap_md5 = replay_info.get("beatmap_md5")
     if beatmap_md5:
         fetcher = BeatmapFetcher(songs_dir=os.path.join(renderer.danser_dir, "Songs"))
-        success, msg = fetcher.ensure_beatmap(beatmap_md5)
+        success, msg = fetcher.ensure_beatmap(beatmap_md5, filename_hint=replay_path)
         print(f"🗺️  Beatmap Status: {msg}")
         if not success:
             print("⚠️ Warning: Beatmap could not be auto-downloaded. Proceeding with existing local database...")
@@ -177,20 +178,35 @@ def main():
         fps=args.fps
     )
 
+    start_time = time.time()
+
     exit_code = renderer.run_record(
         replay_path=replay_path,
         skin_name=selected_skin,
         extra_args=extra_danser_args
     )
 
-    if exit_code == 0:
+    # Verify if a video was actually generated during this run
+    video_generated = False
+    if os.path.exists(args.output_dir):
+        for f in os.listdir(args.output_dir):
+            if f.endswith(".mp4"):
+                full_p = os.path.join(args.output_dir, f)
+                if os.path.getmtime(full_p) >= start_time - 2:
+                    video_generated = True
+                    break
+
+    if exit_code == 0 and video_generated:
         print("\n" + "=" * 66)
         print(f"🎉 Rendering Complete! Video saved to:")
         print(f"📁 {args.output_dir}")
         print("=" * 66)
     else:
-        print(f"\n❌ Danser exited with code: {exit_code}")
-        sys.exit(exit_code)
+        print("\n" + "=" * 66)
+        print("❌ Rendering ended without producing a video.")
+        print("If the beatmap was not found, please ensure the beatmap (.osz) is in Danser's Songs folder.")
+        print("=" * 66)
+        sys.exit(1 if exit_code == 0 else exit_code)
 
 
 if __name__ == "__main__":
