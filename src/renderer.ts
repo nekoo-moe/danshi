@@ -126,14 +126,19 @@ export class DanserRenderer {
       cfg.Skin.UseBeatmapColors = !useSkinColors;
       cfg.Skin.Cursor = cfg.Skin.Cursor || {};
       cfg.Skin.Cursor.UseSkinCursor = useSkinCursor;
+      cfg.Skin.Cursor.CursorRipples = true;
 
       // Audio / Hitsounds
       cfg.Audio = cfg.Audio || {};
       cfg.Audio.IgnoreBeatmapSamples = useSkinHitsounds;
 
-      // Gameplay
+      // Gameplay - NEVER fail replays mid-game, render all taps & notes completely
       cfg.Gameplay = cfg.Gameplay || {};
       cfg.Gameplay.PPVersion = 'latest';
+      cfg.Gameplay.IgnoreFailsInReplays = true;
+      cfg.Gameplay.ShowHitLighting = true;
+      cfg.Gameplay.ShowWarningArrows = true;
+
       if (skipLeadIn) {
         cfg.Gameplay.LeadInTime = 0;
         cfg.Gameplay.LeadInHold = 0;
@@ -142,10 +147,26 @@ export class DanserRenderer {
         cfg.Gameplay.SeizureWarning.Enabled = false;
       }
 
+      // KeyOverlay (Taps & Keypresses counter)
+      cfg.Gameplay.KeyOverlay = cfg.Gameplay.KeyOverlay || {};
+      cfg.Gameplay.KeyOverlay.Show = true;
+      cfg.Gameplay.KeyOverlay.Scale = 1;
+      cfg.Gameplay.KeyOverlay.Opacity = 1;
+
       // PPCounter
       cfg.Gameplay.PPCounter = cfg.Gameplay.PPCounter || {};
       cfg.Gameplay.PPCounter.Show = true;
       cfg.Gameplay.PPCounter.ShowPPComponents = true;
+
+      // HitCounter, Score, HpBar
+      cfg.Gameplay.HitCounter = cfg.Gameplay.HitCounter || {};
+      cfg.Gameplay.HitCounter.Show = true;
+      cfg.Gameplay.Score = cfg.Gameplay.Score || {};
+      cfg.Gameplay.Score.Show = true;
+      cfg.Gameplay.HpBar = cfg.Gameplay.HpBar || {};
+      cfg.Gameplay.HpBar.Show = true;
+      cfg.Gameplay.ComboCounter = cfg.Gameplay.ComboCounter || {};
+      cfg.Gameplay.ComboCounter.Show = true;
 
       // Recording
       if (cfg.Recording) {

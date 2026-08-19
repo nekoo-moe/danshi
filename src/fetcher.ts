@@ -7,7 +7,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { BeatmapInfo, FilenameMetadata } from './types';
 
-const USER_AGENT = 'danser-autofetch/1.3.0 (https://github.com/heiznerd/danser-autofetch)';
+const USER_AGENT = 'danser-autofetch/1.3.1 (https://github.com/heiznerd/danser-autofetch)';
 
 export class BeatmapFetcher {
   private songsDir: string;
@@ -25,12 +25,19 @@ export class BeatmapFetcher {
       const resp = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
       if (!resp.ok) return null;
       const data: any = await resp.json();
-      const sid = data.beatmapset_id;
+      const sid = data.beatmapset_id || (data.set && data.set.id);
+      const title = (data.set && (data.set.title || data.set.title_unicode)) || data.title || 'Unknown';
+      const artist = (data.set && (data.set.artist || data.set.artist_unicode)) || data.artist || 'Unknown';
+      const version = data.version;
+      const creator = (data.set && data.set.creator) || data.creator;
+
       if (sid) {
         return {
           beatmapSetId: sid,
-          title: data.title || 'Unknown',
-          artist: data.artist || 'Unknown',
+          title,
+          artist,
+          version,
+          creator,
           downloadUrl: `https://catboy.best/d/${sid}`,
           source: 'Catboy/Mino (MD5)',
         };
@@ -52,6 +59,8 @@ export class BeatmapFetcher {
           beatmapSetId: data.data.sid,
           title: data.data.title || 'Unknown',
           artist: data.data.artist || 'Unknown',
+          version: data.data.version,
+          creator: data.data.creator,
           downloadUrl: `https://sayobot.cn/beatmaps/download/full/${data.data.sid}`,
           source: 'Sayobot (MD5)',
         };
@@ -114,7 +123,7 @@ export class BeatmapFetcher {
 
     for (const q of queries) {
       const cleanQ = encodeURIComponent(q);
-      const url = `https://catboy.best/api/v2/search?q={cleanQ}`;
+      const url = `https://catboy.best/api/v2/search?q=${cleanQ}`;
       try {
         const resp = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
         if (!resp.ok) continue;
@@ -129,6 +138,7 @@ export class BeatmapFetcher {
                   beatmapSetId: item.id,
                   title: item.title || q,
                   artist: item.artist || 'Unknown',
+                  creator: item.creator,
                   downloadUrl: `https://catboy.best/d/${item.id}`,
                   source: `Catboy/Mino (Creator: ${meta.creator})`,
                 };
@@ -145,6 +155,7 @@ export class BeatmapFetcher {
                     beatmapSetId: item.id,
                     title: item.title || q,
                     artist: item.artist || 'Unknown',
+                    version: b.version,
                     downloadUrl: `https://catboy.best/d/${item.id}`,
                     source: `Catboy/Mino (Difficulty: ${meta.diff})`,
                   };
