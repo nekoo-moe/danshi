@@ -1,42 +1,85 @@
 """
-Command Line Interface for Danser AutoFetch.
+Command Line Interface for Danser AutoFetch (Cross-Platform).
 """
 
 import os
 import sys
 import argparse
+from typing import Optional
 from danser_autofetch import __version__
 from danser_autofetch.parser import parse_replay
 from danser_autofetch.fetcher import BeatmapFetcher
 from danser_autofetch.skins import SkinManager
 from danser_autofetch.renderer import DanserRenderer
 
-DEFAULT_DANSER_DIR = os.path.expanduser("~/Applications/danser")
-DEFAULT_OUTPUT_DIR = os.path.expanduser("~/Videos/danser_records")
-DEFAULT_OSU_EXPORTS_DIR = os.path.expanduser("~/.var/app/sh.ppy.osu/data/osu/exports")
-if not os.path.exists(DEFAULT_OSU_EXPORTS_DIR):
-    DEFAULT_OSU_EXPORTS_DIR = os.path.expanduser("~/.local/share/osu/exports")
+
+def get_default_paths():
+    """Detects default system paths based on operating system."""
+    # 1. Output Directory
+    videos_dir = os.path.expanduser("~/Videos")
+    if sys.platform == "win32":
+        user_profile = os.environ.get("USERPROFILE", os.path.expanduser("~"))
+        videos_dir = os.path.join(user_profile, "Videos")
+    output_dir = os.path.join(videos_dir, "danser_records")
+
+    # 2. osu! Exports Directory
+    osu_exports_dir = None
+    if sys.platform == "win32":
+        localappdata = os.environ.get("LOCALAPPDATA", "")
+        appdata = os.environ.get("APPDATA", "")
+        candidates = [
+            os.path.join(localappdata, "osu!", "exports"),
+            os.path.join(localappdata, "osu!", "Exports"),
+            os.path.join(appdata, "osu", "exports"),
+        ]
+        for c in candidates:
+            if os.path.exists(c):
+                osu_exports_dir = c
+                break
+        if not osu_exports_dir and localappdata:
+            osu_exports_dir = os.path.join(localappdata, "osu!", "exports")
+    elif sys.platform == "darwin":
+        osu_exports_dir = os.path.expanduser("~/Library/Application Support/osu/exports")
+    else:
+        candidates = [
+            os.path.expanduser("~/.var/app/sh.ppy.osu/data/osu/exports"),
+            os.path.expanduser("~/.local/share/osu/exports"),
+        ]
+        for c in candidates:
+            if os.path.exists(c):
+                osu_exports_dir = c
+                break
+        if not osu_exports_dir:
+            osu_exports_dir = candidates[0]
+
+    # 3. Danser Directory
+    danser_dir = DanserRenderer.resolve_danser_dir()
+
+    return danser_dir, output_dir, osu_exports_dir
 
 
 def print_banner():
     banner = f"""
 ==================================================================
    🎵 DANSER AUTOFETCH v{__version__}
-   Automated osu! Replay Renderer & Multi-Mirror Beatmap Fetcher
+   Automated osu! Replay Video Renderer (Cross-Platform)
+   GitHub: https://github.com/heiznerd/danser-autofetch
 ==================================================================
 """
     print(banner)
 
 
 def main():
+    default_danser, default_output, default_exports = get_default_paths()
+
     parser = argparse.ArgumentParser(
-        description="Auto-fetch beatmaps and render osu! replay files (.osr) into 1080p 60FPS videos using Danser."
+        description="Auto-fetch beatmaps and render osu! replay files (.osr) into 1080p 60FPS videos using Danser across Windows, Linux, and macOS."
     )
     parser.add_argument("replay", nargs="?", help="Path to the osu! replay file (.osr)")
     parser.add_argument("-s", "--skin", help="Skin name or keyword to use for rendering (e.g. 'rafis', 'whitecat')")
-    parser.add_argument("-d", "--danser-dir", default=DEFAULT_DANSER_DIR, help=f"Path to Danser directory (default: {DEFAULT_DANSER_DIR})")
-    parser.add_argument("-o", "--output-dir", default=DEFAULT_OUTPUT_DIR, help=f"Directory to store output MP4 videos (default: {DEFAULT_OUTPUT_DIR})")
-    parser.add_argument("--exports-dir", default=DEFAULT_OSU_EXPORTS_DIR, help=f"osu! lazer exports directory (default: {DEFAULT_OSU_EXPORTS_DIR})")
+    parser.add_argument("-d", "--danser-dir", default=default_danser, help=f"Path to Danser directory (default: {default_danser})")
+    parser.add_argument("-o", "--output-dir", default=default_output, help=f"Directory to store output MP4 videos (default: {default_output})")
+    parser.add_argument("--exports-dir", default=default_exports, help=f"osu! lazer exports directory (default: {default_exports})")
     parser.add_argument("--list-skins", action="store_true", help="List all available skins and exit")
     parser.add_argument("--sync-skins", action="store_true", help="Sync/import all skins from osu! exports into Danser")
     parser.add_argument("--fps", type=int, default=60, help="Output video framerate (default: 60)")
@@ -46,17 +89,23 @@ def main():
 
     print_banner()
 
-    if not os.path.exists(args.danser_dir):
-        print(f"❌ Error: Danser directory not found at: {args.danser_dir}")
-        print("Please specify --danser-dir or install Danser in ~/Applications/danser")
+    renderer = DanserRenderer(
+        danser_dir=args.danser_dir,
+        output_dir=args.output_dir
+    )
+
+    if not os.path.exists(renderer.danser_dir):
+        print(f"❌ Error: Danser directory not found at: {renderer.danser_dir}")
+        print("Please download Danser from https://github.com/Wieku/danser-go/releases")
+        print("or specify --danser-dir /path/to/danser")
         sys.exit(1)
 
     skin_manager = SkinManager(
-        skins_dir=os.path.join(args.danser_dir, "Skins"),
+        skins_dir=os.path.join(renderer.danser_dir, "Skins"),
         osu_exports_dir=args.exports_dir
     )
 
-    # Sync skins from lazer exports
+    # Automatically sync skins from lazer exports
     imported = skin_manager.sync_from_osu_exports()
     if imported > 0:
         print(f"📦 Synchronized {imported} new skin(s) from osu! exports directory.")
@@ -94,7 +143,7 @@ def main():
 
     beatmap_md5 = replay_info.get("beatmap_md5")
     if beatmap_md5:
-        fetcher = BeatmapFetcher(songs_dir=os.path.join(args.danser_dir, "Songs"))
+        fetcher = BeatmapFetcher(songs_dir=os.path.join(renderer.danser_dir, "Songs"))
         success, msg = fetcher.ensure_beatmap(beatmap_md5)
         print(f"🗺️  Beatmap Status: {msg}")
         if not success:
@@ -110,11 +159,6 @@ def main():
         else:
             selected_skin = args.skin
             print(f"🎨 Using Custom Skin: '{selected_skin}'")
-
-    renderer = DanserRenderer(
-        danser_dir=args.danser_dir,
-        output_dir=args.output_dir
-    )
 
     renderer.configure_settings(
         use_skin_cursor=True,
