@@ -1,13 +1,14 @@
 """
-Skin Manager module.
-Handles skin synchronization, direct .osk / .zip / URL importing, and fuzzy skin name matching.
+Skin Manager module (Clean On-Demand Architecture).
+Handles on-demand skin importing from local .osk / .zip / folder paths, URLs, and fuzzy name matching.
+Starts with 0 extra skins by default unless user explicitly provides or imports one.
 """
 
 import os
 import shutil
 import zipfile
 import urllib.request
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 
 class SkinManager:
@@ -18,56 +19,59 @@ class SkinManager:
 
     def import_skin(self, source_path_or_url: str) -> Optional[str]:
         """
-        Imports a skin from a local file (.osk, .zip, directory) or a direct download URL.
+        Imports a skin on-demand from:
+        - A local .osk or .zip file path
+        - A local skin folder path
+        - A direct download URL (http/https)
         Returns the installed skin name if successful.
         """
-        target_file = source_path_or_url
+        raw_path = source_path_or_url.strip("\"' ")
 
-        # 1. Download if URL
-        if source_path_or_url.startswith("http://") or source_path_or_url.startswith("https://"):
-            print(f"📥 Downloading skin from: {source_path_or_url}...")
+        # 1. Direct URL download
+        if raw_path.startswith("http://") or raw_path.startswith("https://"):
+            print(f"📥 Downloading skin from URL: {raw_path}...")
             temp_osk = os.path.join(self.skins_dir, "_temp_import.osk")
             try:
-                req = urllib.request.Request(source_path_or_url, headers={"User-Agent": "danser-autofetch"})
+                req = urllib.request.Request(raw_path, headers={"User-Agent": "danser-autofetch"})
                 with urllib.request.urlopen(req, timeout=30) as in_f, open(temp_osk, "wb") as out_f:
                     out_f.write(in_f.read())
-                target_file = temp_osk
+                raw_path = temp_osk
             except Exception as e:
                 print(f"❌ Failed to download skin from URL: {e}")
                 return None
 
-        target_file = os.path.expanduser(target_file)
-        if not os.path.exists(target_file):
+        clean_path = os.path.abspath(os.path.expanduser(raw_path))
+        if not os.path.exists(clean_path):
             return None
 
-        # 2. If it's a directory
-        if os.path.isdir(target_file):
-            skin_name = os.path.basename(os.path.normpath(target_file))
+        # 2. If it's a local folder
+        if os.path.isdir(clean_path):
+            skin_name = os.path.basename(os.path.normpath(clean_path))
             dst = os.path.join(self.skins_dir, skin_name)
-            if os.path.abspath(target_file) != os.path.abspath(dst):
+            if os.path.abspath(clean_path) != os.path.abspath(dst):
                 if os.path.exists(dst):
                     shutil.rmtree(dst)
-                shutil.copytree(target_file, dst)
-            print(f"✅ Imported skin folder: '{skin_name}'")
+                shutil.copytree(clean_path, dst)
+            print(f"✅ Successfully imported skin folder: '{skin_name}'")
             return skin_name
 
         # 3. If it's an archive (.osk / .zip)
-        if target_file.endswith(".osk") or target_file.endswith(".zip"):
-            raw_name = os.path.basename(target_file).rsplit(".", 1)[0]
+        if clean_path.lower().endswith(".osk") or clean_path.lower().endswith(".zip"):
+            raw_name = os.path.basename(clean_path).rsplit(".", 1)[0]
             if raw_name == "_temp_import":
                 raw_name = "Imported_Skin"
-            # Clean up (1), (2) suffixes
+            # Clean up duplicate suffix markers like (1), (2)
             if " (" in raw_name and raw_name.endswith(")"):
                 raw_name = raw_name.rsplit(" (", 1)[0]
 
             dst = os.path.join(self.skins_dir, raw_name)
             os.makedirs(dst, exist_ok=True)
             try:
-                with zipfile.ZipFile(target_file, "r") as z:
+                with zipfile.ZipFile(clean_path, "r") as z:
                     z.extractall(dst)
-                print(f"✅ Extracted & installed skin: '{raw_name}'")
-                if target_file.endswith("_temp_import.osk"):
-                    os.remove(target_file)
+                print(f"✅ Successfully unpacked & installed skin: '{raw_name}'")
+                if clean_path.endswith("_temp_import.osk"):
+                    os.remove(clean_path)
                 return raw_name
             except Exception as e:
                 print(f"❌ Failed to unpack skin archive: {e}")
@@ -77,13 +81,12 @@ class SkinManager:
 
     def sync_from_sources(self) -> int:
         """
-        Scans osu! exports and Downloads directories for new .osk skins and imports them.
+        Manually scans osu! exports and Downloads directories when explicitly requested (--sync-skins).
         """
         scan_dirs = []
         if self.osu_exports_dir and os.path.exists(self.osu_exports_dir):
             scan_dirs.append(self.osu_exports_dir)
         
-        # Also check ~/Downloads for freshly downloaded .osk files
         downloads_dir = os.path.expanduser("~/Downloads")
         if os.path.exists(downloads_dir):
             scan_dirs.append(downloads_dir)
@@ -92,7 +95,7 @@ class SkinManager:
         for s_dir in scan_dirs:
             for item in os.listdir(s_dir):
                 src = os.path.join(s_dir, item)
-                if (item.endswith(".osk") or item.endswith(".zip")) and not item.startswith("."):
+                if (item.lower().endswith(".osk") or item.lower().endswith(".zip")) and not item.startswith("."):
                     skin_name = item.rsplit(".", 1)[0]
                     if " (" in skin_name and skin_name.endswith(")"):
                         skin_name = skin_name.rsplit(" (", 1)[0]
@@ -118,15 +121,17 @@ class SkinManager:
 
     def match_skin(self, query: str) -> Optional[str]:
         """
-        Matches a skin name or imports directly if query is a file path / URL.
+        Matches an existing skin name or automatically imports on-the-fly if query is a local file path / URL.
         """
-        # If query is a file path or URL, auto-import it on the fly!
+        clean_query = query.strip("\"' ")
+
+        # If query is a local file path, directory, or URL, auto-import it on the fly!
         if (
-            query.startswith("http://")
-            or query.startswith("https://")
-            or os.path.exists(os.path.expanduser(query))
+            clean_query.startswith("http://")
+            or clean_query.startswith("https://")
+            or os.path.exists(os.path.expanduser(clean_query))
         ):
-            imported = self.import_skin(query)
+            imported = self.import_skin(clean_query)
             if imported:
                 return imported
 
@@ -136,17 +141,17 @@ class SkinManager:
 
         # 1. Exact match
         for s in available:
-            if s.lower() == query.lower():
+            if s.lower() == clean_query.lower():
                 return s
 
         # 2. Starts with query
         for s in available:
-            if s.lower().startswith(query.lower()):
+            if s.lower().startswith(clean_query.lower()):
                 return s
 
         # 3. Substring match
         for s in available:
-            if query.lower() in s.lower():
+            if clean_query.lower() in s.lower():
                 return s
 
         return None
