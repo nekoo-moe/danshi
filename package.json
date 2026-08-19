@@ -37,7 +37,8 @@
   "homepage": "https://github.com/heiznerd/danser-autofetch#readme",
   "dependencies": {
     "adm-zip": "^0.5.16",
-    "commander": "^12.1.0"
+    "commander": "^12.1.0",
+    "rosu-pp-js": "^4.0.1"
   },
   "devDependencies": {
     "@types/adm-zip": "^0.5.7",

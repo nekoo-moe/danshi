@@ -7,3 +7,4 @@ export * from './parser';
 export * from './fetcher';
 export * from './skins';
 export * from './renderer';
+export * from './calculator';

@@ -22,4 +22,5 @@ __exportStar(require("./parser"), exports);
 __exportStar(require("./fetcher"), exports);
 __exportStar(require("./skins"), exports);
 __exportStar(require("./renderer"), exports);
+__exportStar(require("./calculator"), exports);
 //# sourceMappingURL=index.js.map

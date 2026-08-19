@@ -120,15 +120,20 @@ export class DanserRenderer {
       cfg.Audio.IgnoreBeatmapSamples = useSkinHitsounds;
 
       // Gameplay
-      if (cfg.Gameplay) {
-        if (skipLeadIn) {
-          cfg.Gameplay.LeadInTime = 0;
-          cfg.Gameplay.LeadInHold = 0;
-        }
-        if (cfg.Gameplay.SeizureWarning) {
-          cfg.Gameplay.SeizureWarning.Enabled = false;
-        }
+      cfg.Gameplay = cfg.Gameplay || {};
+      cfg.Gameplay.PPVersion = 'latest';
+      if (skipLeadIn) {
+        cfg.Gameplay.LeadInTime = 0;
+        cfg.Gameplay.LeadInHold = 0;
       }
+      if (cfg.Gameplay.SeizureWarning) {
+        cfg.Gameplay.SeizureWarning.Enabled = false;
+      }
+
+      // PPCounter
+      cfg.Gameplay.PPCounter = cfg.Gameplay.PPCounter || {};
+      cfg.Gameplay.PPCounter.Show = true;
+      cfg.Gameplay.PPCounter.ShowPPComponents = true;
 
       // Recording
       if (cfg.Recording) {

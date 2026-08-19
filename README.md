@@ -171,3 +171,12 @@ Trong **osu! lazer**, toàn bộ dữ liệu bài hát và nhạc nền được
 - Core rendering engine powered by **[danser-go](https://github.com/Wieku/danser-go)** by **Wieku**.
 - Beatmap resolution powered by community mirrors: **Catboy / Mino**, **Sayobot**, and **Chimu**.
 - Licensed under the **[MIT License](LICENSE)**.
+
+---
+
+## ⚡ 2026 Performance Points & Star Rating Engine
+
+Danser AutoFetch integrates **`rosu-pp`** (WebAssembly), which implements the latest official **[osu! July 2026 Performance Points & Star Rating Rework](https://osu.ppy.sh/home/news/2026-07-03-performance-points-star-rating-updates)**:
+- **Updated Star Rating (SR):** Modern Aim, Speed, and Flashlight strain calculations.
+- **Accurate PP Breakdown:** Full component metrics for Play PP (*Aim, Speed, Accuracy, Flashlight*) and theoretical 100% SS Max PP.
+- **Up-to-Date Algorithms:** Includes modern slider tracking, miss penalties, and length bonus curves.

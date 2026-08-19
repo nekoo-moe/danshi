@@ -10,6 +10,7 @@ import { parseReplay } from './parser';
 import { BeatmapFetcher } from './fetcher';
 import { SkinManager } from './skins';
 import { DanserRenderer } from './renderer';
+import { PPCalculator } from './calculator';
 import { SystemPaths } from './types';
 
 const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf-8'));
@@ -165,12 +166,28 @@ export async function run(): Promise<void> {
     console.warn(`⚠️ Warning: Could not parse replay header: ${e.message}`);
   }
 
+  const songsDir = path.join(renderer.danserDir, 'Songs');
   if (replayInfo.beatmapMd5) {
-    const fetcher = new BeatmapFetcher(path.join(renderer.danserDir, 'Songs'));
+    const fetcher = new BeatmapFetcher(songsDir);
     const { success, message } = await fetcher.ensureBeatmap(replayInfo.beatmapMd5, replayPath);
     console.log(`🗺️  Beatmap Status: ${message}`);
     if (!success) {
       console.warn('⚠️ Warning: Beatmap could not be auto-downloaded. Proceeding with existing local database...');
+    }
+  }
+
+  // Calculate 2026 PP Performance Points
+  const meta = new BeatmapFetcher(songsDir).parseReplayFilename(replayPath);
+  const osuFile = PPCalculator.findOsuFileInSongs(songsDir, replayInfo.beatmapMd5, meta.diff);
+  if (osuFile) {
+    const ppResult = PPCalculator.calculate(osuFile, replayInfo);
+    if (ppResult) {
+      console.log(`\n==================================================================`);
+      console.log(`⚡ 2026 Performance Points Breakdown (Latest July 2026 Rework)`);
+      console.log(`⭐ Star Rating:    ${ppResult.stars}★ (Aim: ${ppResult.aimStars}★ | Speed: ${ppResult.speedStars}★)`);
+      console.log(`🏆 Performance:    ${ppResult.totalPP} PP (Aim: ${ppResult.aimPP} | Speed: ${ppResult.speedPP} | Acc: ${ppResult.accPP})`);
+      console.log(`✨ If 100% SS:     ${ppResult.ssPP} PP (Max Combo: ${ppResult.maxCombo}x)`);
+      console.log(`==================================================================`);
     }
   }
 
