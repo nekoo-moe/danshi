@@ -1,0 +1,53 @@
+{
+  "name": "danser-autofetch",
+  "version": "1.0.0",
+  "description": "Automated osu! replay video renderer with multi-mirror beatmap auto-fetcher and smart skin manager for Danser-go.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "danser-autofetch": "./dist/cli.js",
+    "danser-record": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "prepare": "npm run build",
+    "start": "node dist/cli.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/heiznerd/danser-autofetch.git"
+  },
+  "keywords": [
+    "osu",
+    "osu-lazer",
+    "danser",
+    "danser-go",
+    "replay",
+    "recorder",
+    "renderer",
+    "beatmap",
+    "autofetch"
+  ],
+  "author": "heiznerd <heiznerd@users.noreply.github.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/heiznerd/danser-autofetch/issues"
+  },
+  "homepage": "https://github.com/heiznerd/danser-autofetch#readme",
+  "dependencies": {
+    "adm-zip": "^0.5.16",
+    "commander": "^12.1.0"
+  },
+  "devDependencies": {
+    "@types/adm-zip": "^0.5.7",
+    "@types/node": "^22.10.1",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

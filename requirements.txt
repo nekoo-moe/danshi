@@ -1,2 +1,0 @@
-# No heavy external dependencies required!
-# Pure Python 3 standard library (urllib, struct, json, os, subprocess)

@@ -1,0 +1,17 @@
+src/
+tsconfig.json
+.git/
+.github/
+__pycache__/
+*.py
+*.pyc
+*.egg-info/
+setup.py
+requirements.txt
+.venv/
+venv/
+*.osr
+*.osz
+*.mp4
+*.osk
+*.zip
