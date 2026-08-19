@@ -45,7 +45,7 @@ exports.DanserInstaller = void 0;
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const adm_zip_1 = __importDefault(require("adm-zip"));
-const USER_AGENT = 'danser-autofetch/1.0.0 (https://github.com/heiznerd/danser-autofetch)';
+const USER_AGENT = 'danser-autofetch/1.2.0 (https://github.com/heiznerd/danser-autofetch)';
 const GITHUB_API_URL = 'https://api.github.com/repos/Wieku/danser-go/releases/latest';
 class DanserInstaller {
     static getPlatformKeyword() {
@@ -117,15 +117,15 @@ class DanserInstaller {
         if (this.isDanserInstalled(installDir)) {
             return installDir;
         }
-        console.log(`\n⚙️  Danser-go was not found on this machine.`);
-        console.log(`📦 Performing first-boot auto-installation for [${process.platform}]...`);
-        console.log(`📁 Target directory: ${installDir}`);
+        console.log(`\n[SETUP] Danser-go was not found on this machine.`);
+        console.log(`[SETUP] Performing first-boot auto-installation for [${process.platform}]...`);
+        console.log(`[SETUP] Target directory: ${installDir}`);
         const asset = await this.resolveDownloadUrl();
         const tempZip = path.join(path.dirname(installDir), `_temp_${asset.name}`);
         if (!fs.existsSync(path.dirname(installDir))) {
             fs.mkdirSync(path.dirname(installDir), { recursive: true });
         }
-        console.log(`⚡ Downloading ${asset.name} from GitHub...`);
+        console.log(`[DOWNLOAD] Fetching ${asset.name} from GitHub...`);
         try {
             const resp = await fetch(asset.downloadUrl, { headers: { 'User-Agent': USER_AGENT } });
             if (!resp.ok || !resp.body) {
@@ -144,12 +144,12 @@ class DanserInstaller {
                     downloaded += value.length;
                     if (totalBytes > 0) {
                         const percent = Math.floor((downloaded * 100) / totalBytes);
-                        process.stdout.write(`\r📥 Downloading Danser: ${percent}% (${Math.floor(downloaded / (1024 * 1024))} MB / ${Math.floor(totalBytes / (1024 * 1024))} MB)`);
+                        process.stdout.write(`\r[PROGRESS] Downloading Danser: ${percent}% (${Math.floor(downloaded / (1024 * 1024))} MB / ${Math.floor(totalBytes / (1024 * 1024))} MB)`);
                     }
                 }
             }
             fileStream.end();
-            console.log('\n📦 Extracting and configuring Danser-go...');
+            console.log('\n[SETUP] Extracting and configuring Danser-go...');
             if (!fs.existsSync(installDir)) {
                 fs.mkdirSync(installDir, { recursive: true });
             }
@@ -182,7 +182,7 @@ class DanserInstaller {
                     fs.mkdirSync(p, { recursive: true });
                 }
             }
-            console.log(`🎉 Danser-go has been successfully installed to: ${installDir}\n`);
+            console.log(`[SUCCESS] Danser-go has been successfully installed to: ${installDir}\n`);
             return installDir;
         }
         catch (err) {

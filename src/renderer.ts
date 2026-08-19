@@ -145,7 +145,7 @@ export class DanserRenderer {
 
       fs.writeFileSync(this.settingsFile, JSON.stringify(cfg, null, 4), 'utf-8');
     } catch (e: any) {
-      console.log(`⚠️ Warning: Could not update Danser config: ${e.message}`);
+      console.log(`[WARN] Could not update Danser config: ${e.message}`);
     }
   }
 
@@ -174,7 +174,7 @@ export class DanserRenderer {
         args.push(...extraArgs);
       }
 
-      console.log(`\n🚀 Launching Danser: ${this.danserBin} ${args.join(' ')}`);
+      console.log(`\n[EXEC] Launching Danser: ${this.danserBin} ${args.join(' ')}`);
 
       const child = spawn(this.danserBin, args, {
         cwd: this.danserDir,
@@ -187,7 +187,7 @@ export class DanserRenderer {
       });
 
       child.on('error', (err) => {
-        console.error(`❌ Failed to start Danser binary: ${err.message}`);
+        console.error(`[ERROR] Failed to start Danser binary: ${err.message}`);
         resolve(1);
       });
     });

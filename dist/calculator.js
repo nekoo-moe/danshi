@@ -86,7 +86,7 @@ class PPCalculator {
             };
         }
         catch (e) {
-            console.warn(`⚠️ Warning: Could not calculate modern PP: ${e.message}`);
+            console.warn(`[WARN] Could not calculate modern PP: ${e.message}`);
             return null;
         }
     }

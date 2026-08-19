@@ -67,7 +67,7 @@ export function getDefaultPaths(): SystemPaths {
 function printBanner(): void {
   console.log(`
 ==================================================================
-   🎵 DANSER AUTOFETCH v${packageJson.version} (TypeScript / Node.js)
+   DANSER AUTOFETCH v${packageJson.version} (TypeScript / Node.js)
    Automated osu! Replay Video Renderer (Cross-Platform)
    GitHub: https://github.com/heiznerd/danser-autofetch
    NPM:    https://www.npmjs.com/package/danser-autofetch
@@ -105,7 +105,7 @@ export async function run(): Promise<void> {
   try {
     danserDir = await DanserInstaller.ensureInstalled(options.danserDir);
   } catch (err: any) {
-    console.error(`❌ Error setting up Danser: ${err.message}`);
+    console.error(`[ERROR] Failed to initialize Danser: ${err.message}`);
     process.exit(1);
   }
 
@@ -116,8 +116,8 @@ export async function run(): Promise<void> {
   if (options.importSkin) {
     const importedName = await skinManager.importSkin(options.importSkin);
     if (importedName) {
-      console.log(`🎉 Successfully added new skin: '${importedName}'!`);
-      console.log(`You can now use it with: danser-record <replay.osr> -s "${importedName}"`);
+      console.log(`[SUCCESS] Added new skin: '${importedName}'`);
+      console.log(`Usage: danser-record <replay.osr> -s "${importedName}"`);
     }
     return;
   }
@@ -125,7 +125,7 @@ export async function run(): Promise<void> {
   // 3. Manual Skin Sync
   if (options.syncSkins) {
     const imported = await skinManager.syncFromSources();
-    console.log(`📦 Synchronized ${imported} skin(s) from system folders into Danser.`);
+    console.log(`[INFO] Synchronized ${imported} skin(s) from system folders into Danser.`);
     return;
   }
 
@@ -133,12 +133,12 @@ export async function run(): Promise<void> {
   if (options.listSkins) {
     const skins = skinManager.listSkins();
     if (skins.length > 0) {
-      console.log(`🎨 Available Skins (${skins.length} total):`);
+      console.log(`Available Skins (${skins.length} total):`);
       for (const s of skins.sort()) {
-        console.log(`  • ${s}`);
+        console.log(`  - ${s}`);
       }
     } else {
-      console.log('🎨 No custom skins installed yet. You can add one with: danser-record --import-skin <path/to/skin.osk>');
+      console.log('No custom skins installed yet. Add one with: danser-record --import-skin <path/to/skin.osk>');
     }
     return;
   }
@@ -152,29 +152,29 @@ export async function run(): Promise<void> {
   const replayPath = path.resolve(cleanReplay.replace(/^~(?=$|\/|\\)/, process.env.HOME || process.env.USERPROFILE || ''));
 
   if (!fs.existsSync(replayPath)) {
-    console.error(`❌ Error: Replay file not found: ${replayPath}`);
+    console.error(`[ERROR] Replay file not found: ${replayPath}`);
     process.exit(1);
   }
 
-  console.log(`📂 Analyzing Replay: ${path.basename(replayPath)}`);
+  console.log(`Analyzing Replay: ${path.basename(replayPath)}`);
   let replayInfo: any = {};
   try {
     replayInfo = parseReplay(replayPath);
-    console.log(`👤 Player:      ${replayInfo.playerName}`);
-    console.log(`🎯 Mods:        ${replayInfo.modsString}`);
-    console.log(`💯 Score:       ${replayInfo.totalScore.toLocaleString()} | Max Combo: ${replayInfo.maxCombo}x`);
-    console.log(`🔑 Beatmap MD5: ${replayInfo.beatmapMd5}`);
+    console.log(`Player:      ${replayInfo.playerName}`);
+    console.log(`Mods:        ${replayInfo.modsString}`);
+    console.log(`Score:       ${replayInfo.totalScore.toLocaleString()} | Max Combo: ${replayInfo.maxCombo}x`);
+    console.log(`Beatmap MD5: ${replayInfo.beatmapMd5}`);
   } catch (e: any) {
-    console.warn(`⚠️ Warning: Could not parse replay header: ${e.message}`);
+    console.warn(`[WARN] Could not parse replay header: ${e.message}`);
   }
 
   const songsDir = path.join(renderer.danserDir, 'Songs');
   if (replayInfo.beatmapMd5) {
     const fetcher = new BeatmapFetcher(songsDir);
     const { success, message } = await fetcher.ensureBeatmap(replayInfo.beatmapMd5, replayPath);
-    console.log(`🗺️  Beatmap Status: ${message}`);
+    console.log(`Beatmap Status: ${message}`);
     if (!success) {
-      console.warn('⚠️ Warning: Beatmap could not be auto-downloaded. Proceeding with existing local database...');
+      console.warn('[WARN] Beatmap could not be auto-downloaded. Proceeding with existing local database...');
     }
   }
 
@@ -185,10 +185,10 @@ export async function run(): Promise<void> {
     const ppResult = PPCalculator.calculate(osuFile, replayInfo);
     if (ppResult) {
       console.log(`\n==================================================================`);
-      console.log(`⚡ 2026 Performance Points Breakdown (Latest July 2026 Rework)`);
-      console.log(`⭐ Star Rating:    ${ppResult.stars}★ (Aim: ${ppResult.aimStars}★ | Speed: ${ppResult.speedStars}★)`);
-      console.log(`🏆 Performance:    ${ppResult.totalPP} PP (Aim: ${ppResult.aimPP} | Speed: ${ppResult.speedPP} | Acc: ${ppResult.accPP})`);
-      console.log(`✨ If 100% SS:     ${ppResult.ssPP} PP (Max Combo: ${ppResult.maxCombo}x)`);
+      console.log(`2026 Performance Points Breakdown (Latest July 2026 Rework)`);
+      console.log(`Star Rating:    ${ppResult.stars}* (Aim: ${ppResult.aimStars}* | Speed: ${ppResult.speedStars}*)`);
+      console.log(`Performance:    ${ppResult.totalPP} PP (Aim: ${ppResult.aimPP} | Speed: ${ppResult.speedPP} | Acc: ${ppResult.accPP})`);
+      console.log(`If 100% SS:     ${ppResult.ssPP} PP (Max Combo: ${ppResult.maxCombo}x)`);
       console.log(`==================================================================`);
     }
   }
@@ -199,10 +199,10 @@ export async function run(): Promise<void> {
     const matched = await skinManager.matchSkin(options.skin);
     if (matched) {
       selectedSkin = matched;
-      console.log(`🎨 Using Skin: '${selectedSkin}'`);
+      console.log(`Using Skin: '${selectedSkin}'`);
     } else {
       selectedSkin = options.skin;
-      console.log(`🎨 Using Custom Skin: '${selectedSkin}'`);
+      console.log(`Using Custom Skin: '${selectedSkin}'`);
     }
   }
 
@@ -234,12 +234,12 @@ export async function run(): Promise<void> {
 
   if (exitCode === 0 && videoGenerated) {
     console.log('\n' + '='.repeat(66));
-    console.log('🎉 Rendering Complete! Video saved to:');
-    console.log(`📁 ${renderer.outputDir}`);
+    console.log('Rendering Complete! Video saved to:');
+    console.log(`Destination: ${renderer.outputDir}`);
     console.log('='.repeat(66));
   } else {
     console.log('\n' + '='.repeat(66));
-    console.log('❌ Rendering ended without producing a video.');
+    console.log('[ERROR] Rendering ended without producing a video.');
     console.log("If the beatmap was not found, please ensure the beatmap (.osz) is in Danser's Songs folder.");
     console.log('='.repeat(66));
     process.exit(exitCode === 0 ? 1 : exitCode);
@@ -248,7 +248,7 @@ export async function run(): Promise<void> {
 
 if (require.main === module) {
   run().catch((err) => {
-    console.error('Fatal error:', err);
+    console.error('[FATAL]', err);
     process.exit(1);
   });
 }

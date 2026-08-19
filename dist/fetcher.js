@@ -40,7 +40,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.BeatmapFetcher = void 0;
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
-const USER_AGENT = 'danser-autofetch/1.0.0 (https://github.com/heiznerd/danser-autofetch)';
+const USER_AGENT = 'danser-autofetch/1.2.0 (https://github.com/heiznerd/danser-autofetch)';
 class BeatmapFetcher {
     songsDir;
     constructor(songsDir) {
@@ -138,7 +138,7 @@ class BeatmapFetcher {
         const diffTarget = (meta.diff || '').toLowerCase().trim();
         for (const q of queries) {
             const cleanQ = encodeURIComponent(q);
-            const url = `https://catboy.best/api/v2/search?q=${cleanQ}`;
+            const url = `https://catboy.best/api/v2/search?q={cleanQ}`;
             try {
                 const resp = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
                 if (!resp.ok)
@@ -206,7 +206,7 @@ class BeatmapFetcher {
         // 2. Fallback: Parse filename metadata and search
         if (filenameHint) {
             const meta = this.parseReplayFilename(filenameHint);
-            console.log(`🔍 Searching mirror servers for: '${meta.artist || ''} - ${meta.title || ''}' (Mapper: ${meta.creator || 'Any'})...`);
+            console.log(`[SEARCH] Querying mirror servers for: '${meta.artist || ''} - ${meta.title || ''}' (Mapper: ${meta.creator || 'Any'})...`);
             const searchInfo = await this.searchMirrorWithMetadata(meta);
             if (searchInfo)
                 return searchInfo;
@@ -226,7 +226,7 @@ class BeatmapFetcher {
         if (fs.existsSync(targetOsz) || fs.existsSync(targetExtracted)) {
             return { success: true, message: `Beatmap '${artist} - ${title}' (Set #${sid}) is already present.` };
         }
-        console.log(`⚡ Downloading beatmap: ${artist} - ${title} (Set #${sid}) from ${info.source}...`);
+        console.log(`[DOWNLOAD] Fetching beatmap: ${artist} - ${title} (Set #${sid}) from ${info.source}...`);
         try {
             const resp = await fetch(info.downloadUrl, { headers: { 'User-Agent': USER_AGENT } });
             if (!resp.ok || !resp.body) {
@@ -245,12 +245,12 @@ class BeatmapFetcher {
                     downloaded += value.length;
                     if (totalBytes > 0) {
                         const percent = Math.floor((downloaded * 100) / totalBytes);
-                        process.stdout.write(`\r📥 Progress: ${percent}% (${Math.floor(downloaded / 1024)} KB / ${Math.floor(totalBytes / 1024)} KB)`);
+                        process.stdout.write(`\r[PROGRESS] Downloading: ${percent}% (${Math.floor(downloaded / 1024)} KB / ${Math.floor(totalBytes / 1024)} KB)`);
                     }
                 }
             }
             fileStream.end();
-            console.log('\n✅ Download completed successfully!');
+            console.log('\n[SUCCESS] Download completed successfully.');
             return { success: true, message: `Downloaded '${artist} - ${title}' (Set #${sid})` };
         }
         catch (e) {

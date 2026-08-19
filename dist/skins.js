@@ -60,7 +60,7 @@ class SkinManager {
         let rawPath = sourcePathOrUrl.trim().replace(/^["']|["']$/g, '');
         // 1. Direct URL download
         if (rawPath.startsWith('http://') || rawPath.startsWith('https://')) {
-            console.log(`📥 Downloading skin from URL: ${rawPath}...`);
+            console.log(`[DOWNLOAD] Fetching skin from URL: ${rawPath}...`);
             const tempOsk = path.join(this.skinsDir, '_temp_import.osk');
             try {
                 const resp = await fetch(rawPath, { headers: { 'User-Agent': 'danser-autofetch' } });
@@ -71,7 +71,7 @@ class SkinManager {
                 rawPath = tempOsk;
             }
             catch (e) {
-                console.log(`❌ Failed to download skin from URL: ${e.message}`);
+                console.log(`[ERROR] Failed to download skin from URL: ${e.message}`);
                 return null;
             }
         }
@@ -90,7 +90,7 @@ class SkinManager {
                 }
                 fs.cpSync(cleanPath, dst, { recursive: true });
             }
-            console.log(`✅ Successfully imported skin folder: '${skinName}'`);
+            console.log(`[SUCCESS] Imported skin folder: '${skinName}'`);
             return skinName;
         }
         // 3. Compressed skin archive (.osk / .zip)
@@ -111,14 +111,14 @@ class SkinManager {
             try {
                 const zip = new adm_zip_1.default(cleanPath);
                 zip.extractAllTo(dst, true);
-                console.log(`✅ Successfully unpacked & installed skin: '${rawName}'`);
+                console.log(`[SUCCESS] Unpacked and installed skin: '${rawName}'`);
                 if (cleanPath.endsWith('_temp_import.osk') && fs.existsSync(cleanPath)) {
                     fs.unlinkSync(cleanPath);
                 }
                 return rawName;
             }
             catch (e) {
-                console.log(`❌ Failed to unpack skin archive: ${e.message}`);
+                console.log(`[ERROR] Failed to unpack skin archive: ${e.message}`);
                 return null;
             }
         }
