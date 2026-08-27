@@ -37,6 +37,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.parseResolution = parseResolution;
 exports.getDefaultPaths = getDefaultPaths;
 exports.run = run;
 const fs = __importStar(require("fs"));
@@ -49,6 +50,42 @@ const renderer_1 = require("./renderer");
 const calculator_1 = require("./calculator");
 const installer_1 = require("./installer");
 const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf-8'));
+function parseResolution(input) {
+    if (!input)
+        return [1920, 1080];
+    const clean = input.toLowerCase().trim();
+    const presets = {
+        '480p': [854, 480],
+        '480': [854, 480],
+        '720p': [1280, 720],
+        '720': [1280, 720],
+        'hd': [1280, 720],
+        '1080p': [1920, 1080],
+        '1080': [1920, 1080],
+        'fhd': [1920, 1080],
+        '1440p': [2560, 1440],
+        '1440': [2560, 1440],
+        '2k': [2560, 1440],
+        'qhd': [2560, 1440],
+        '4k': [3840, 2160],
+        '2160p': [3840, 2160],
+        '2160': [3840, 2160],
+        'uhd': [3840, 2160],
+    };
+    if (presets[clean]) {
+        return presets[clean];
+    }
+    const match = clean.match(/^(\d+)[xX*:](\d+)$/);
+    if (match) {
+        const w = parseInt(match[1], 10);
+        const h = parseInt(match[2], 10);
+        if (w > 0 && h > 0) {
+            return [w, h];
+        }
+    }
+    console.warn(`[WARN] Unknown resolution preset '${input}', defaulting to 1080p (1920x1080).`);
+    return [1920, 1080];
+}
 function getDefaultPaths() {
     const home = process.env.HOME || process.env.USERPROFILE || '';
     let videosDir = path.join(home, 'Videos');
@@ -111,17 +148,18 @@ async function run() {
     const program = new commander_1.Command();
     program
         .name('danser-autofetch')
-        .description('Auto-fetch beatmaps and render osu! replay files (.osr) into 1080p 60FPS videos using Danser across Windows, Linux, and macOS.')
+        .description('Auto-fetch beatmaps and render osu! replay files (.osr) into MP4 videos using Danser across Windows, Linux, and macOS.')
         .version(packageJson.version, '-v, --version', 'Output program version')
         .argument('[replay]', 'Path to the osu! replay file (.osr)')
         .option('-s, --skin <skin>', 'Skin name, local file path (.osk/.zip), folder path, or direct download URL')
+        .option('-r, --resolution <resolution>', 'Output video resolution: 480p, 720p, 1080p, 1440p (2K), 4K, or custom WxH (e.g. 1920x1080)', '1080p')
+        .option('--fps <fps>', 'Output video framerate (e.g. 30, 60, 120)', (val) => parseInt(val, 10), 60)
         .option('--import-skin <pathOrUrl>', 'Import a new skin from a local path (.osk/.zip/folder) or download URL')
         .option('-d, --danser-dir <path>', 'Path to Danser directory', defaults.danserDir)
         .option('-o, --output-dir <path>', 'Directory to store output MP4 videos', defaults.outputDir)
         .option('--exports-dir <path>', 'osu! lazer exports directory', defaults.osuExportsDir)
         .option('--list-skins', 'List all available skins in Danser and exit')
         .option('--sync-skins', 'Manually sync skins from osu! exports and Downloads folders')
-        .option('--fps <fps>', 'Output video framerate', (val) => parseInt(val, 10), 60)
         .allowUnknownOption(true);
     program.parse(process.argv);
     const options = program.opts();
@@ -137,6 +175,7 @@ async function run() {
         process.exit(1);
     }
     const renderer = new renderer_1.DanserRenderer(danserDir, options.outputDir);
+    const resolution = parseResolution(options.resolution);
     // Ensure Danser configuration is pre-configured and written immediately
     renderer.configureSettings({
         useSkinCursor: true,
@@ -144,6 +183,7 @@ async function run() {
         useSkinColors: true,
         skipLeadIn: true,
         fps: options.fps,
+        resolution,
     });
     const skinManager = new skins_1.SkinManager(path.join(renderer.danserDir, 'Skins'), options.exportsDir);
     // 2. Explicit Skin Import
@@ -186,13 +226,14 @@ async function run() {
         process.exit(1);
     }
     console.log(`Analyzing Replay: ${path.basename(replayPath)}`);
+    console.log(`Output Format:    ${resolution[0]}x${resolution[1]} @ ${options.fps} FPS`);
     let replayInfo = {};
     try {
         replayInfo = (0, parser_1.parseReplay)(replayPath);
-        console.log(`Player:      ${replayInfo.playerName}`);
-        console.log(`Mods:        ${replayInfo.modsString}`);
-        console.log(`Score:       ${replayInfo.totalScore.toLocaleString()} | Max Combo: ${replayInfo.maxCombo}x`);
-        console.log(`Beatmap MD5: ${replayInfo.beatmapMd5}`);
+        console.log(`Player:           ${replayInfo.playerName}`);
+        console.log(`Mods:             ${replayInfo.modsString}`);
+        console.log(`Score:            ${replayInfo.totalScore.toLocaleString()} | Max Combo: ${replayInfo.maxCombo}x`);
+        console.log(`Beatmap MD5:      ${replayInfo.beatmapMd5}`);
     }
     catch (e) {
         console.warn(`[WARN] Could not parse replay header: ${e.message}`);
@@ -201,7 +242,7 @@ async function run() {
     if (replayInfo.beatmapMd5) {
         const fetcher = new fetcher_1.BeatmapFetcher(songsDir);
         const { success, message } = await fetcher.ensureBeatmap(replayInfo.beatmapMd5, replayPath);
-        console.log(`Beatmap Status: ${message}`);
+        console.log(`Beatmap Status:   ${message}`);
         if (!success) {
             console.warn('[WARN] Beatmap could not be auto-downloaded. Proceeding with existing local database...');
         }
@@ -214,9 +255,9 @@ async function run() {
         if (ppResult) {
             console.log(`\n==================================================================`);
             console.log(`2026 Performance Points Breakdown (Latest July 2026 Rework)`);
-            console.log(`Star Rating:    ${ppResult.stars}* (Aim: ${ppResult.aimStars}* | Speed: ${ppResult.speedStars}*)`);
-            console.log(`Performance:    ${ppResult.totalPP} PP (Aim: ${ppResult.aimPP} | Speed: ${ppResult.speedPP} | Acc: ${ppResult.accPP})`);
-            console.log(`If 100% SS:     ${ppResult.ssPP} PP (Max Combo: ${ppResult.maxCombo}x)`);
+            console.log(`Star Rating:      ${ppResult.stars}* (Aim: ${ppResult.aimStars}* | Speed: ${ppResult.speedStars}*)`);
+            console.log(`Performance:      ${ppResult.totalPP} PP (Aim: ${ppResult.aimPP} | Speed: ${ppResult.speedPP} | Acc: ${ppResult.accPP})`);
+            console.log(`If 100% SS:       ${ppResult.ssPP} PP (Max Combo: ${ppResult.maxCombo}x)`);
             console.log(`==================================================================`);
         }
     }
@@ -226,11 +267,11 @@ async function run() {
         const matched = await skinManager.matchSkin(options.skin);
         if (matched) {
             selectedSkin = matched;
-            console.log(`Using Skin: '${selectedSkin}'`);
+            console.log(`Using Skin:       '${selectedSkin}'`);
         }
         else {
             selectedSkin = options.skin;
-            console.log(`Using Custom Skin: '${selectedSkin}'`);
+            console.log(`Using Custom Skin:'${selectedSkin}'`);
         }
     }
     const startTime = Date.now();

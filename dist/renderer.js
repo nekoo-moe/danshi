@@ -139,6 +139,10 @@ class DanserRenderer {
             cfg.General.OsuSkinsDir = skinsDir;
             cfg.General.OsuReplaysDir = replaysDir;
             cfg.General.UnpackOszFiles = true;
+            // Graphics & Window size
+            cfg.Graphics = cfg.Graphics || {};
+            cfg.Graphics.Width = resolution[0];
+            cfg.Graphics.Height = resolution[1];
             // Skin
             cfg.Skin = cfg.Skin || {};
             cfg.Skin.UseColorsFromSkin = useSkinColors;
@@ -180,13 +184,12 @@ class DanserRenderer {
             cfg.Gameplay.HpBar.Show = true;
             cfg.Gameplay.ComboCounter = cfg.Gameplay.ComboCounter || {};
             cfg.Gameplay.ComboCounter.Show = true;
-            // Recording
-            if (cfg.Recording) {
-                cfg.Recording.FrameWidth = resolution[0];
-                cfg.Recording.FrameHeight = resolution[1];
-                cfg.Recording.FPS = fps;
-                cfg.Recording.Encoder = 'libx264';
-            }
+            // Recording Resolution & FPS
+            cfg.Recording = cfg.Recording || {};
+            cfg.Recording.FrameWidth = resolution[0];
+            cfg.Recording.FrameHeight = resolution[1];
+            cfg.Recording.FPS = fps;
+            cfg.Recording.Encoder = 'libx264';
             fs.writeFileSync(this.settingsFile, JSON.stringify(cfg, null, 4), 'utf-8');
         }
         catch (e) {
