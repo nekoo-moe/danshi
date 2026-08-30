@@ -8,7 +8,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import AdmZip from 'adm-zip';
 
-const USER_AGENT = 'danser-autofetch/1.3.0 (https://github.com/heiznerd/danser-autofetch)';
+const USER_AGENT = 'danser-autofetch/1.3.4 (https://github.com/heiznerd/danser-autofetch)';
 const GITHUB_API_URL = 'https://api.github.com/repos/Wieku/danser-go/releases/latest';
 
 export interface DanserReleaseAsset {
@@ -216,6 +216,9 @@ export class DanserInstaller {
                   Show: true,
                   ShowPPComponents: true,
                 },
+              },
+              Recording: {
+                OutputDir: videosDir,
               },
             },
             null,

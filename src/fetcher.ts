@@ -8,7 +8,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { BeatmapInfo, FilenameMetadata } from './types';
 
-const USER_AGENT = 'danser-autofetch/1.3.2 (https://github.com/heiznerd/danser-autofetch)';
+const USER_AGENT = 'danser-autofetch/1.3.4 (https://github.com/heiznerd/danser-autofetch)';
 
 export class BeatmapFetcher {
   private songsDir: string;

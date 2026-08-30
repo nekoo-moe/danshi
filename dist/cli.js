@@ -276,23 +276,63 @@ async function run() {
     }
     const startTime = Date.now();
     const exitCode = await renderer.runRecord(replayPath, selectedSkin, program.args.slice(1));
-    let videoGenerated = false;
-    if (fs.existsSync(renderer.outputDir)) {
-        const files = fs.readdirSync(renderer.outputDir);
-        for (const f of files) {
-            if (f.endsWith('.mp4')) {
-                const fullP = path.join(renderer.outputDir, f);
-                const mtime = fs.statSync(fullP).mtimeMs;
-                if (mtime >= startTime - 2000) {
-                    videoGenerated = true;
+    // Detect generated video across renderer.outputDir and danser's internal videos directory
+    const searchDirs = [renderer.outputDir];
+    const danserInternalVideos = path.join(renderer.danserDir, 'videos');
+    if (path.resolve(danserInternalVideos) !== path.resolve(renderer.outputDir)) {
+        searchDirs.push(danserInternalVideos);
+    }
+    let finalVideoPath = null;
+    for (const sDir of searchDirs) {
+        if (fs.existsSync(sDir)) {
+            const files = fs.readdirSync(sDir);
+            const videoFiles = files
+                .filter((f) => {
+                const l = f.toLowerCase();
+                return l.endsWith('.mp4') || l.endsWith('.mkv') || l.endsWith('.avi');
+            })
+                .map((f) => {
+                const fullP = path.join(sDir, f);
+                const stat = fs.statSync(fullP);
+                return { fullP, mtime: stat.mtimeMs };
+            })
+                .sort((a, b) => b.mtime - a.mtime);
+            for (const item of videoFiles) {
+                if (item.mtime >= startTime - 5000) {
+                    finalVideoPath = item.fullP;
                     break;
                 }
             }
+            if (finalVideoPath)
+                break;
         }
     }
-    if (exitCode === 0 && videoGenerated) {
+    // If video was saved to danser's internal folder instead of outputDir, relocate it
+    if (finalVideoPath && path.resolve(path.dirname(finalVideoPath)) !== path.resolve(renderer.outputDir)) {
+        try {
+            fs.mkdirSync(renderer.outputDir, { recursive: true });
+            const targetFile = path.join(renderer.outputDir, path.basename(finalVideoPath));
+            try {
+                fs.renameSync(finalVideoPath, targetFile);
+                finalVideoPath = targetFile;
+            }
+            catch {
+                fs.copyFileSync(finalVideoPath, targetFile);
+                try {
+                    fs.unlinkSync(finalVideoPath);
+                }
+                catch { }
+                finalVideoPath = targetFile;
+            }
+        }
+        catch (e) {
+            console.warn(`[WARN] Could not move video to target outputDir: ${e.message}`);
+        }
+    }
+    if (exitCode === 0 && finalVideoPath) {
         console.log('\n' + '='.repeat(66));
         console.log('Rendering Complete! Video saved to:');
+        console.log(`File:        ${finalVideoPath}`);
         console.log(`Destination: ${renderer.outputDir}`);
         console.log('='.repeat(66));
     }

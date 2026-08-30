@@ -5,6 +5,8 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import * as crypto from 'crypto';
+import AdmZip from 'adm-zip';
 import { Beatmap, Performance } from 'rosu-pp-js';
 import { ReplayMetadata } from './types';
 
@@ -79,19 +81,54 @@ export class PPCalculator {
   static findOsuFileInSongs(songsDir: string, beatmapMd5?: string, diffHint?: string): string | null {
     if (!fs.existsSync(songsDir)) return null;
 
+    // 1. Unpack any .osz archive that hasn't been extracted yet
+    try {
+      const entries = fs.readdirSync(songsDir);
+      for (const entry of entries) {
+        if (entry.toLowerCase().endsWith('.osz')) {
+          const folderName = entry.replace(/\.osz$/i, '');
+          const folderPath = path.join(songsDir, folderName);
+          if (!fs.existsSync(folderPath)) {
+            try {
+              const zip = new AdmZip(path.join(songsDir, entry));
+              zip.extractAllTo(folderPath, true);
+            } catch {
+              // Ignore unpack error here
+            }
+          }
+        }
+      }
+    } catch {
+      // Ignore scan error
+    }
+
+    const cleanMd5 = (beatmapMd5 || '').toLowerCase().trim();
+    let diffFallback: string | null = null;
+
     for (const entry of fs.readdirSync(songsDir)) {
       const fullPath = path.join(songsDir, entry);
       if (fs.statSync(fullPath).isDirectory()) {
         for (const file of fs.readdirSync(fullPath)) {
-          if (file.endsWith('.osu')) {
+          if (file.toLowerCase().endsWith('.osu')) {
             const osuP = path.join(fullPath, file);
+            try {
+              if (cleanMd5) {
+                const fileBuf = fs.readFileSync(osuP);
+                const hash = crypto.createHash('md5').update(fileBuf).digest('hex').toLowerCase();
+                if (hash === cleanMd5) {
+                  return osuP;
+                }
+              }
+            } catch {}
+
             if (diffHint && file.toLowerCase().includes(`[${diffHint.toLowerCase()}]`)) {
-              return osuP;
+              diffFallback = osuP;
             }
           }
         }
       }
     }
-    return null;
+
+    return diffFallback;
   }
 }

@@ -111,6 +111,7 @@ export class DanserRenderer {
       fs.mkdirSync(songsDir, { recursive: true });
       fs.mkdirSync(skinsDir, { recursive: true });
       fs.mkdirSync(replaysDir, { recursive: true });
+      fs.mkdirSync(this.outputDir, { recursive: true });
       fs.mkdirSync(path.dirname(this.settingsFile), { recursive: true });
 
       // Always configure General paths explicitly to Danser's internal folders
@@ -173,12 +174,13 @@ export class DanserRenderer {
       cfg.Gameplay.ComboCounter = cfg.Gameplay.ComboCounter || {};
       cfg.Gameplay.ComboCounter.Show = true;
 
-      // Recording Resolution & FPS
+      // Recording Resolution, FPS & Output Directory
       cfg.Recording = cfg.Recording || {};
       cfg.Recording.FrameWidth = resolution[0];
       cfg.Recording.FrameHeight = resolution[1];
       cfg.Recording.FPS = fps;
       cfg.Recording.Encoder = 'libx264';
+      cfg.Recording.OutputDir = this.outputDir;
 
       fs.writeFileSync(this.settingsFile, JSON.stringify(cfg, null, 4), 'utf-8');
     } catch (e: any) {

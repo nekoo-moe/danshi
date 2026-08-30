@@ -36,10 +36,15 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PPCalculator = void 0;
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
+const crypto = __importStar(require("crypto"));
+const adm_zip_1 = __importDefault(require("adm-zip"));
 const rosu_pp_js_1 = require("rosu-pp-js");
 class PPCalculator {
     /**
@@ -96,20 +101,54 @@ class PPCalculator {
     static findOsuFileInSongs(songsDir, beatmapMd5, diffHint) {
         if (!fs.existsSync(songsDir))
             return null;
-        for (const entry of fs.readdirSync(songsDir)) {
-            const fullPath = path.join(songsDir, entry);
-            if (fs.statSync(fullPath).isDirectory()) {
-                for (const file of fs.readdirSync(fullPath)) {
-                    if (file.endsWith('.osu')) {
-                        const osuP = path.join(fullPath, file);
-                        if (diffHint && file.toLowerCase().includes(`[${diffHint.toLowerCase()}]`)) {
-                            return osuP;
+        // 1. Unpack any .osz archive that hasn't been extracted yet
+        try {
+            const entries = fs.readdirSync(songsDir);
+            for (const entry of entries) {
+                if (entry.toLowerCase().endsWith('.osz')) {
+                    const folderName = entry.replace(/\.osz$/i, '');
+                    const folderPath = path.join(songsDir, folderName);
+                    if (!fs.existsSync(folderPath)) {
+                        try {
+                            const zip = new adm_zip_1.default(path.join(songsDir, entry));
+                            zip.extractAllTo(folderPath, true);
+                        }
+                        catch {
+                            // Ignore unpack error here
                         }
                     }
                 }
             }
         }
-        return null;
+        catch {
+            // Ignore scan error
+        }
+        const cleanMd5 = (beatmapMd5 || '').toLowerCase().trim();
+        let diffFallback = null;
+        for (const entry of fs.readdirSync(songsDir)) {
+            const fullPath = path.join(songsDir, entry);
+            if (fs.statSync(fullPath).isDirectory()) {
+                for (const file of fs.readdirSync(fullPath)) {
+                    if (file.toLowerCase().endsWith('.osu')) {
+                        const osuP = path.join(fullPath, file);
+                        try {
+                            if (cleanMd5) {
+                                const fileBuf = fs.readFileSync(osuP);
+                                const hash = crypto.createHash('md5').update(fileBuf).digest('hex').toLowerCase();
+                                if (hash === cleanMd5) {
+                                    return osuP;
+                                }
+                            }
+                        }
+                        catch { }
+                        if (diffHint && file.toLowerCase().includes(`[${diffHint.toLowerCase()}]`)) {
+                            diffFallback = osuP;
+                        }
+                    }
+                }
+            }
+        }
+        return diffFallback;
     }
 }
 exports.PPCalculator = PPCalculator;
