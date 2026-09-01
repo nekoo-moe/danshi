@@ -33,6 +33,7 @@ export interface FilenameMetadata {
     title?: string;
     creator?: string;
     diff?: string;
+    beatmapId?: number;
 }
 export interface DanserConfigOptions {
     useSkinCursor?: boolean;

@@ -147,33 +147,62 @@ export class SkinManager {
   async matchSkin(query: string): Promise<string | null> {
     const cleanQuery = query.trim().replace(/^["']|["']$/g, '');
 
-    // If query is an existing local file or directory or URL, import on-the-fly
+    // 1. Direct path check (as passed)
     const resolvedPath = path.resolve(cleanQuery.replace(/^~(?=$|\/|\\)/, process.env.HOME || process.env.USERPROFILE || ''));
     if (cleanQuery.startsWith('http://') || cleanQuery.startsWith('https://') || fs.existsSync(resolvedPath)) {
       const imported = await this.importSkin(cleanQuery);
       if (imported) return imported;
     }
 
+    // 2. Check standard user directories if cleanQuery was passed as a filename
+    const home = process.env.HOME || process.env.USERPROFILE || '';
+    const candidateDirs = [
+      path.join(home, 'Documents'),
+      path.join(home, 'Downloads'),
+      path.join(home, 'Desktop'),
+    ];
+    if (this.osuExportsDir) {
+      candidateDirs.unshift(this.osuExportsDir);
+    }
+    for (const cDir of candidateDirs) {
+      const candidateFile = path.join(cDir, cleanQuery);
+      if (fs.existsSync(candidateFile)) {
+        const imported = await this.importSkin(candidateFile);
+        if (imported) return imported;
+      }
+    }
+
+    // 3. Search already installed skins
     const available = this.listSkins();
     if (available.length === 0) return null;
 
-    // 1. Exact match
+    // Strip .osk / .zip extensions for name matching
+    const queryBase = cleanQuery.replace(/\.(osk|zip)$/i, '').trim();
+
+    // 3.1 Exact match
     for (const s of available) {
-      if (s.toLowerCase() === cleanQuery.toLowerCase()) {
+      if (s.toLowerCase() === queryBase.toLowerCase() || s.toLowerCase() === cleanQuery.toLowerCase()) {
         return s;
       }
     }
 
-    // 2. Starts with query
+    // 3.2 Starts with
     for (const s of available) {
-      if (s.toLowerCase().startsWith(cleanQuery.toLowerCase())) {
+      if (s.toLowerCase().startsWith(queryBase.toLowerCase())) {
         return s;
       }
     }
 
-    // 3. Substring match
+    // 3.3 Substring match
     for (const s of available) {
-      if (s.toLowerCase().includes(cleanQuery.toLowerCase())) {
+      if (s.toLowerCase().includes(queryBase.toLowerCase())) {
+        return s;
+      }
+    }
+
+    // 3.4 Reverse substring match
+    for (const s of available) {
+      if (queryBase.toLowerCase().includes(s.toLowerCase())) {
         return s;
       }
     }

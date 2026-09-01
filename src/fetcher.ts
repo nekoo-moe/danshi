@@ -8,7 +8,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { BeatmapInfo, FilenameMetadata } from './types';
 
-const USER_AGENT = 'danser-autofetch/1.3.4 (https://github.com/heiznerd/danser-autofetch)';
+const USER_AGENT = 'danser-autofetch/1.3.5 (https://github.com/heiznerd/danser-autofetch)';
 
 export class BeatmapFetcher {
   private songsDir: string;
@@ -82,6 +82,143 @@ export class BeatmapFetcher {
     return null;
   }
 
+  async fetchByMd5OsuDirect(md5: string): Promise<BeatmapInfo | null> {
+    const url = `https://osu.direct/api/v2/md5/${md5}`;
+    try {
+      const resp = await fetch(url, { headers: { 'User-Agent': USER_AGENT }, signal: AbortSignal.timeout(5000) });
+      if (!resp.ok) return null;
+      const data: any = await resp.json();
+      const sid = data.beatmapset_id;
+      if (sid) {
+        let title = 'Unknown';
+        let artist = 'Unknown';
+        let creator = data.creator;
+        try {
+          const sResp = await fetch(`https://osu.direct/api/s/${sid}`, {
+            headers: { 'User-Agent': USER_AGENT },
+            signal: AbortSignal.timeout(3000),
+          });
+          if (sResp.ok) {
+            const sData: any = await sResp.json();
+            title = sData.Title || title;
+            artist = sData.Artist || artist;
+            creator = sData.Creator || creator;
+          }
+        } catch {}
+
+        return {
+          beatmapSetId: sid,
+          title,
+          artist,
+          version: data.version,
+          creator,
+          downloadUrl: `https://catboy.best/d/${sid}`,
+          source: 'osu.direct (MD5)',
+        };
+      }
+    } catch {
+      // Ignore network errors
+    }
+    return null;
+  }
+
+  async fetchByBeatmapId(bid: number): Promise<BeatmapInfo | null> {
+    // 1. Try osu.direct /api/b/
+    try {
+      const url = `https://osu.direct/api/b/${bid}`;
+      const resp = await fetch(url, { headers: { 'User-Agent': USER_AGENT }, signal: AbortSignal.timeout(5000) });
+      if (resp.ok) {
+        const data: any = await resp.json();
+        const sid = data.ParentSetID;
+        if (sid) {
+          let title = 'Unknown';
+          let artist = 'Unknown';
+          let creator: string | undefined;
+          try {
+            const sResp = await fetch(`https://osu.direct/api/s/${sid}`, {
+              headers: { 'User-Agent': USER_AGENT },
+              signal: AbortSignal.timeout(3000),
+            });
+            if (sResp.ok) {
+              const sData: any = await sResp.json();
+              title = sData.Title || title;
+              artist = sData.Artist || artist;
+              creator = sData.Creator;
+            }
+          } catch {}
+          return {
+            beatmapSetId: sid,
+            title,
+            artist,
+            version: data.DiffName,
+            creator,
+            downloadUrl: `https://catboy.best/d/${sid}`,
+            source: `osu.direct (Beatmap #${bid})`,
+          };
+        }
+      }
+    } catch {}
+
+    // 2. Try Catboy /api/v2/b/
+    try {
+      const url = `https://catboy.best/api/v2/b/${bid}`;
+      const resp = await fetch(url, { headers: { 'User-Agent': USER_AGENT }, signal: AbortSignal.timeout(5000) });
+      if (resp.ok) {
+        const data: any = await resp.json();
+        const sid = data.beatmapset_id;
+        if (sid) {
+          let title = (data.set && (data.set.title || data.set.title_unicode)) || 'Unknown';
+          let artist = (data.set && (data.set.artist || data.set.artist_unicode)) || 'Unknown';
+          let creator = (data.owners && data.owners[0] && data.owners[0].username) || (data.set && data.set.creator);
+          if (title === 'Unknown') {
+            try {
+              const sResp = await fetch(`https://catboy.best/api/v2/s/${sid}`, {
+                headers: { 'User-Agent': USER_AGENT },
+                signal: AbortSignal.timeout(3000),
+              });
+              if (sResp.ok) {
+                const sData: any = await sResp.json();
+                title = sData.title || title;
+                artist = sData.artist || artist;
+                creator = creator || sData.creator;
+              }
+            } catch {}
+          }
+          return {
+            beatmapSetId: sid,
+            title,
+            artist,
+            version: data.version,
+            creator,
+            downloadUrl: `https://catboy.best/d/${sid}`,
+            source: `Catboy (Beatmap #${bid})`,
+          };
+        }
+      }
+    } catch {}
+
+    // 3. Try Sayobot T=0
+    try {
+      const url = `https://api.sayobot.cn/v2/beatmapinfo?K=${bid}&T=0`;
+      const resp = await fetch(url, { headers: { 'User-Agent': USER_AGENT }, signal: AbortSignal.timeout(5000) });
+      if (resp.ok) {
+        const data: any = await resp.json();
+        if (data.status === 0 && data.data && data.data.sid) {
+          return {
+            beatmapSetId: data.data.sid,
+            title: data.data.title || 'Unknown',
+            artist: data.data.artist || 'Unknown',
+            creator: data.data.creator,
+            downloadUrl: `https://dl.sayobot.cn/beatmaps/download/full/${data.data.sid}`,
+            source: `Sayobot (Beatmap #${bid})`,
+          };
+        }
+      }
+    } catch {}
+
+    return null;
+  }
+
   async fetchByMd5Nerinyan(md5: string): Promise<BeatmapInfo | null> {
     const url = `https://api.nerinyan.moe/search?q=${md5}`;
     try {
@@ -111,9 +248,21 @@ export class BeatmapFetcher {
       name = name.split(' playing ')[1];
     }
 
+    // Check for osu! lazer exported replay pattern: (solo-)?replay-osu_{beatmapId}_{scoreId}.osr or osu_{beatmapId}_{scoreId}.osr
+    let beatmapId: number | undefined;
+    const lazerIdMatch = name.match(/^(?:solo-)?replay-osu_(\d+)_/i) || name.match(/^osu_(\d+)_/i) || name.match(/^(\d+)_\d+\.osr$/i);
+    if (lazerIdMatch) {
+      beatmapId = parseInt(lazerIdMatch[1], 10);
+    }
+
     // Strip trailing timestamp e.g. (2026-07-15_16-53).osr
     name = name.replace(/\s*\(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}\)\.osr$/i, '');
     name = name.replace(/\.osr$/i, '').trim();
+
+    // If name matches the pure lazer pattern without metadata, avoid using it as search title
+    if (/^(?:solo-)?replay-osu_\d+/i.test(name) || /^osu_\d+/i.test(name)) {
+      return { beatmapId };
+    }
 
     let diff: string | undefined;
     const diffMatch = name.match(/\[(.*?)\]$/);
@@ -130,14 +279,14 @@ export class BeatmapFetcher {
     }
 
     let artist: string | undefined;
-    let title = name;
+    let title: string | undefined = name;
     if (name.includes(' - ')) {
       const parts = name.split(' - ');
       artist = parts[0].trim();
       title = parts.slice(1).join(' - ').trim();
     }
 
-    return { artist, title, creator, diff };
+    return { artist, title, creator, diff, beatmapId };
   }
 
   async searchMirrorWithMetadata(meta: FilenameMetadata): Promise<BeatmapInfo | null> {
@@ -250,18 +399,30 @@ export class BeatmapFetcher {
     const catboyInfo = await this.fetchByMd5Catboy(md5);
     if (catboyInfo) return catboyInfo;
 
+    const osuDirectInfo = await this.fetchByMd5OsuDirect(md5);
+    if (osuDirectInfo) return osuDirectInfo;
+
     const sayobotInfo = await this.fetchByMd5Sayobot(md5);
     if (sayobotInfo) return sayobotInfo;
 
     const nerinyanInfo = await this.fetchByMd5Nerinyan(md5);
     if (nerinyanInfo) return nerinyanInfo;
 
-    // 2. Fallback: Parse filename metadata and search
+    // 2. Try Beatmap ID if extracted from replay filename (osu! lazer format)
     if (filenameHint) {
       const meta = this.parseReplayFilename(filenameHint);
-      console.log(`[SEARCH] Querying mirror servers for: '${meta.artist || ''} - ${meta.title || ''}' (Mapper: ${meta.creator || 'Any'})...`);
-      const searchInfo = await this.searchMirrorWithMetadata(meta);
-      if (searchInfo) return searchInfo;
+      if (meta.beatmapId) {
+        console.log(`[LOOKUP] Detected osu! lazer Beatmap ID #${meta.beatmapId} from replay filename, querying mirrors...`);
+        const bidInfo = await this.fetchByBeatmapId(meta.beatmapId);
+        if (bidInfo) return bidInfo;
+      }
+
+      // 3. Fallback: Search mirrors by artist / song title
+      if (meta.title && meta.title.length > 2) {
+        console.log(`[SEARCH] Querying mirror servers for: '${meta.artist || ''} - ${meta.title}' (Mapper: ${meta.creator || 'Any'})...`);
+        const searchInfo = await this.searchMirrorWithMetadata(meta);
+        if (searchInfo) return searchInfo;
+      }
     }
 
     return null;
@@ -321,13 +482,7 @@ export class BeatmapFetcher {
   }
 
   async ensureBeatmap(md5: string, filenameHint?: string): Promise<{ success: boolean; message: string }> {
-    let info = await this.resolveBeatmap(md5, filenameHint);
-
-    // If MD5 failed, try metadata search directly
-    if (!info && filenameHint) {
-      const meta = this.parseReplayFilename(filenameHint);
-      info = await this.searchMirrorWithMetadata(meta);
-    }
+    const info = await this.resolveBeatmap(md5, filenameHint);
 
     if (!info) {
       return { success: false, message: `Could not resolve beatmap (MD5: ${md5}) on any mirror.` };

@@ -13,6 +13,8 @@ export declare class BeatmapFetcher {
     }[];
     fetchByMd5Catboy(md5: string): Promise<BeatmapInfo | null>;
     fetchByMd5Sayobot(md5: string): Promise<BeatmapInfo | null>;
+    fetchByMd5OsuDirect(md5: string): Promise<BeatmapInfo | null>;
+    fetchByBeatmapId(bid: number): Promise<BeatmapInfo | null>;
     fetchByMd5Nerinyan(md5: string): Promise<BeatmapInfo | null>;
     parseReplayFilename(filename: string): FilenameMetadata;
     searchMirrorWithMetadata(meta: FilenameMetadata): Promise<BeatmapInfo | null>;
