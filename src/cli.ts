@@ -56,6 +56,116 @@ export function parseResolution(input?: string): [number, number] {
   return [1920, 1080];
 }
 
+export function resolveReplayPath(arg?: string, osuExportsDir?: string, danserDir?: string): string | null {
+  const home = process.env.HOME || process.env.USERPROFILE || '';
+  const candidateDirs: string[] = [];
+
+  if (osuExportsDir && fs.existsSync(osuExportsDir)) {
+    candidateDirs.push(osuExportsDir);
+  }
+  const downloadsDir = path.join(home, 'Downloads');
+  if (fs.existsSync(downloadsDir)) {
+    candidateDirs.push(downloadsDir);
+    // Include common download subfolders like Telegram Desktop
+    try {
+      for (const sub of fs.readdirSync(downloadsDir)) {
+        const subPath = path.join(downloadsDir, sub);
+        if (fs.statSync(subPath).isDirectory() && !sub.startsWith('.')) {
+          candidateDirs.push(subPath);
+        }
+      }
+    } catch {}
+  }
+  const documentsDir = path.join(home, 'Documents');
+  if (fs.existsSync(documentsDir)) {
+    candidateDirs.push(documentsDir);
+  }
+  const desktopDir = path.join(home, 'Desktop');
+  if (fs.existsSync(desktopDir)) {
+    candidateDirs.push(desktopDir);
+  }
+  if (danserDir) {
+    const replaysDir = path.join(danserDir, 'Replays');
+    if (fs.existsSync(replaysDir)) {
+      candidateDirs.push(replaysDir);
+    }
+  }
+
+  // If no argument provided, find the newest .osr replay across candidate folders
+  if (!arg) {
+    let latestPath: string | null = null;
+    let latestMtime = 0;
+    for (const dir of candidateDirs) {
+      try {
+        const files = fs.readdirSync(dir);
+        for (const f of files) {
+          if (f.toLowerCase().endsWith('.osr')) {
+            const fullP = path.join(dir, f);
+            const mtime = fs.statSync(fullP).mtimeMs;
+            if (mtime > latestMtime) {
+              latestMtime = mtime;
+              latestPath = fullP;
+            }
+          }
+        }
+      } catch {}
+    }
+    return latestPath;
+  }
+
+  const cleanArg = arg.trim().replace(/^["']|["']$/g, '');
+
+  // 1. Direct path as passed (absolute or relative to cwd)
+  const resolved = path.resolve(cleanArg.replace(/^~(?=$|\/|\\)/, home));
+  if (fs.existsSync(resolved) && !fs.statSync(resolved).isDirectory()) {
+    return resolved;
+  }
+
+  // 1.1 Direct path with .osr appended
+  if (!cleanArg.toLowerCase().endsWith('.osr')) {
+    const resolvedWithOsr = path.resolve((cleanArg + '.osr').replace(/^~(?=$|\/|\\)/, home));
+    if (fs.existsSync(resolvedWithOsr) && !fs.statSync(resolvedWithOsr).isDirectory()) {
+      return resolvedWithOsr;
+    }
+  }
+
+  // 2. Exact filename match in candidate directories
+  for (const dir of candidateDirs) {
+    const target = path.join(dir, cleanArg);
+    if (fs.existsSync(target) && !fs.statSync(target).isDirectory()) {
+      return target;
+    }
+    if (!cleanArg.toLowerCase().endsWith('.osr')) {
+      const targetWithOsr = path.join(dir, `${cleanArg}.osr`);
+      if (fs.existsSync(targetWithOsr) && !fs.statSync(targetWithOsr).isDirectory()) {
+        return targetWithOsr;
+      }
+    }
+  }
+
+  // 3. Substring / Fuzzy match in candidate directories (sorted by newest modified)
+  const searchBase = cleanArg.replace(/\.osr$/i, '').toLowerCase();
+  for (const dir of candidateDirs) {
+    try {
+      const files = fs.readdirSync(dir)
+        .filter((f) => f.toLowerCase().endsWith('.osr'))
+        .map((f) => {
+          const fullP = path.join(dir, f);
+          return { fullP, filename: f, mtime: fs.statSync(fullP).mtimeMs };
+        })
+        .sort((a, b) => b.mtime - a.mtime);
+
+      for (const item of files) {
+        if (item.filename.toLowerCase().includes(searchBase)) {
+          return item.fullP;
+        }
+      }
+    } catch {}
+  }
+
+  return null;
+}
+
 export function getDefaultPaths(): SystemPaths {
   const home = process.env.HOME || process.env.USERPROFILE || '';
   let videosDir = path.join(home, 'Videos');
@@ -196,17 +306,28 @@ export async function run(): Promise<void> {
     return;
   }
 
-  if (!replayArg) {
-    program.help();
-    process.exit(1);
-  }
-
-  const cleanReplay = replayArg.trim().replace(/^["']|["']$/g, '');
-  const replayPath = path.resolve(cleanReplay.replace(/^~(?=$|\/|\\)/, process.env.HOME || process.env.USERPROFILE || ''));
-
-  if (!fs.existsSync(replayPath)) {
-    console.error(`[ERROR] Replay file not found: ${replayPath}`);
-    process.exit(1);
+  let replayPath: string | null = null;
+  if (replayArg) {
+    replayPath = resolveReplayPath(replayArg, options.exportsDir, renderer.danserDir);
+    if (!replayPath) {
+      console.error(`[ERROR] Replay file not found: '${replayArg}'`);
+      console.error(`Searched in: Current directory, Downloads, Documents, Desktop, and osu! exports folder.`);
+      process.exit(1);
+    }
+    const cleanReplay = replayArg.trim().replace(/^["']|["']$/g, '');
+    if (path.resolve(cleanReplay) !== path.resolve(replayPath)) {
+      console.log(`[RESOLVE] Auto-located replay file: ${replayPath}`);
+    }
+  } else {
+    // If no replay argument was provided, try picking the newest replay automatically
+    replayPath = resolveReplayPath(undefined, options.exportsDir, renderer.danserDir);
+    if (replayPath) {
+      console.log(`[AUTO-DETECT] No replay specified, using newest replay found: ${path.basename(replayPath)}`);
+      console.log(`Path: ${replayPath}`);
+    } else {
+      program.help();
+      process.exit(1);
+    }
   }
 
   console.log(`Analyzing Replay: ${path.basename(replayPath)}`);
