@@ -21,6 +21,7 @@ export interface ReplayMetadata {
 }
 export interface BeatmapInfo {
     beatmapSetId: number;
+    beatmapId?: number;
     title: string;
     artist: string;
     version?: string;

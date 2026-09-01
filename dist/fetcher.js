@@ -41,7 +41,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.BeatmapFetcher = void 0;
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
-const USER_AGENT = 'danser-autofetch/1.3.6 (https://github.com/heiznerd/danser-autofetch)';
+const USER_AGENT = 'danser-autofetch/1.3.7 (https://github.com/heiznerd/danser-autofetch)';
 class BeatmapFetcher {
     songsDir;
     constructor(songsDir) {
@@ -277,34 +277,39 @@ class BeatmapFetcher {
     }
     parseReplayFilename(filename) {
         let name = path.basename(filename);
-        if (name.includes(' playing ')) {
-            name = name.split(' playing ')[1];
-        }
-        // Check for osu! lazer exported replay pattern: (solo-)?replay-osu_{beatmapId}_{scoreId}.osr or osu_{beatmapId}_{scoreId}.osr
+        // 1. Check for osu! lazer exported replay pattern: (solo-)?replay-osu_{beatmapId}_{scoreId}.osr or osu_{beatmapId}_{scoreId}.osr
         let beatmapId;
         const lazerIdMatch = name.match(/^(?:solo-)?replay-osu_(\d+)_/i) || name.match(/^osu_(\d+)_/i) || name.match(/^(\d+)_\d+\.osr$/i);
         if (lazerIdMatch) {
             beatmapId = parseInt(lazerIdMatch[1], 10);
+            return { beatmapId };
         }
-        // Strip trailing timestamp e.g. (2026-07-15_16-53).osr
-        name = name.replace(/\s*\(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}\)\.osr$/i, '');
+        // 2. Strip trailing timestamp e.g. (2026-09-01_10-29).osr
+        name = name.replace(/\s*\(\d{4}-\d{2}-\d{2}(?:_\d{2}-\d{2}(?:-\d{2})?)?\)\.osr$/i, '');
         name = name.replace(/\.osr$/i, '').trim();
         // If name matches the pure lazer pattern without metadata, avoid using it as search title
         if (/^(?:solo-)?replay-osu_\d+/i.test(name) || /^osu_\d+/i.test(name)) {
             return { beatmapId };
         }
+        // 3. Extract difficulty from trailing brackets [DiffName]
         let diff;
-        const diffMatch = name.match(/\[(.*?)\]$/);
+        const diffMatch = name.match(/\[([^\[\]]*)\]$/);
         if (diffMatch) {
             diff = diffMatch[1].trim();
             name = name.slice(0, diffMatch.index).trim();
         }
+        // 4. Extract mapper from trailing parentheses (Mapper)
         let creator;
-        const creatorMatch = name.match(/\((.*?)\)$/);
+        const creatorMatch = name.match(/\(([^()]*)\)$/);
         if (creatorMatch) {
             creator = creatorMatch[1].trim();
             name = name.slice(0, creatorMatch.index).trim();
         }
+        // 5. Strip '{player} playing ' prefix from in-game lazer exports
+        if (name.includes(' playing ')) {
+            name = name.split(' playing ').slice(1).join(' playing ').trim();
+        }
+        // 6. Split Artist and Title
         let artist;
         let title = name;
         if (name.includes(' - ')) {
@@ -316,24 +321,67 @@ class BeatmapFetcher {
     }
     async searchMirrorWithMetadata(meta) {
         const queries = [];
-        if (meta.artist && meta.title) {
-            // Clean query without (feat. ...) which often breaks exact match in search engines
-            const cleanTitle = meta.title.replace(/\s*\([^)]*\)/g, '').trim();
+        const cleanTitle = (meta.title || '').replace(/\s*\([^)]*\)/g, '').trim();
+        // Build intelligent prioritized query strings
+        if (meta.creator && cleanTitle) {
+            queries.push(`${meta.creator} ${cleanTitle}`);
+        }
+        if (meta.creator && meta.artist && cleanTitle) {
+            queries.push(`${meta.creator} ${meta.artist} ${cleanTitle}`);
+        }
+        if (meta.artist && cleanTitle) {
             queries.push(`${meta.artist} ${cleanTitle}`);
             queries.push(`${meta.artist} ${meta.title}`);
         }
-        if (meta.title) {
-            queries.push(meta.title.replace(/\s*\([^)]*\)/g, '').trim());
+        if (cleanTitle) {
+            queries.push(cleanTitle);
+        }
+        if (meta.title && meta.title !== cleanTitle) {
             queries.push(meta.title);
         }
-        if (meta.artist) {
-            queries.push(meta.artist);
+        if (meta.creator) {
+            queries.push(meta.creator);
         }
         const creatorTarget = (meta.creator || '').toLowerCase().trim();
         const diffTarget = (meta.diff || '').toLowerCase().trim();
         for (const q of queries) {
             const cleanQ = encodeURIComponent(q);
-            // 1. Try Catboy search
+            // 1. Try osu.direct search
+            try {
+                const url = `https://osu.direct/api/search?q=${cleanQ}`;
+                const resp = await fetch(url, { headers: { 'User-Agent': USER_AGENT }, signal: AbortSignal.timeout(5000) });
+                if (resp.ok) {
+                    const results = await resp.json();
+                    if (Array.isArray(results) && results.length > 0) {
+                        for (const item of results) {
+                            const c = (item.Creator || '').toLowerCase().trim();
+                            if (!creatorTarget || c === creatorTarget) {
+                                let matchedBid;
+                                if (Array.isArray(item.ChildrenBeatmaps) && diffTarget) {
+                                    const matched = item.ChildrenBeatmaps.find((b) => b.DiffName && b.DiffName.toLowerCase().trim() === diffTarget);
+                                    if (matched && matched.BeatmapID) {
+                                        matchedBid = matched.BeatmapID;
+                                        meta.beatmapId = matchedBid;
+                                    }
+                                }
+                                return {
+                                    beatmapSetId: item.SetID,
+                                    beatmapId: matchedBid || meta.beatmapId,
+                                    title: item.Title || q,
+                                    artist: item.Artist || 'Unknown',
+                                    creator: item.Creator,
+                                    downloadUrl: `https://catboy.best/d/${item.SetID}`,
+                                    source: `osu.direct (${item.Creator ? `Creator: ${item.Creator}` : 'Search'})`,
+                                };
+                            }
+                        }
+                    }
+                }
+            }
+            catch {
+                // Continue
+            }
+            // 2. Try Catboy search
             try {
                 const url = `https://catboy.best/api/v2/search?q=${cleanQ}`;
                 const resp = await fetch(url, { headers: { 'User-Agent': USER_AGENT }, signal: AbortSignal.timeout(5000) });
@@ -343,6 +391,12 @@ class BeatmapFetcher {
                         for (const item of results) {
                             const c = (item.creator || (item.user && item.user.username) || '').toLowerCase().trim();
                             if (!creatorTarget || c === creatorTarget) {
+                                if (Array.isArray(item.beatmaps) && diffTarget) {
+                                    const matchedDiff = item.beatmaps.find((b) => b.version && b.version.toLowerCase().trim() === diffTarget);
+                                    if (matchedDiff && matchedDiff.id) {
+                                        meta.beatmapId = matchedDiff.id;
+                                    }
+                                }
                                 return {
                                     beatmapSetId: item.id,
                                     title: item.title || q,
@@ -359,7 +413,7 @@ class BeatmapFetcher {
             catch {
                 // Continue
             }
-            // 2. Try Sayobot search
+            // 3. Try Sayobot search
             try {
                 const url = `https://api.sayobot.cn/beatmaplist?0=20&1=0&2=4&8=2&100=${cleanQ}`;
                 const resp = await fetch(url, { headers: { 'User-Agent': USER_AGENT }, signal: AbortSignal.timeout(5000) });
@@ -386,7 +440,7 @@ class BeatmapFetcher {
             catch {
                 // Continue
             }
-            // 3. Try Nerinyan search
+            // 4. Try Nerinyan search
             try {
                 const url = `https://api.nerinyan.moe/search?q=${cleanQ}`;
                 const resp = await fetch(url, { headers: { 'User-Agent': USER_AGENT }, signal: AbortSignal.timeout(5000) });
