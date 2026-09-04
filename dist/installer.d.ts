@@ -3,6 +3,7 @@
  * Automatically detects OS, downloads the latest Danser-go release, unpacks it,
  * and sets up executable permissions without requiring manual intervention.
  */
+import { ProgressCallback } from './ui';
 export interface DanserReleaseAsset {
     name: string;
     downloadUrl: string;
@@ -13,6 +14,6 @@ export declare class DanserInstaller {
     static getDefaultInstallDir(): string;
     static isDanserInstalled(dir: string): boolean;
     static resolveDownloadUrl(): Promise<DanserReleaseAsset>;
-    static ensureInstalled(targetDir?: string): Promise<string>;
+    static ensureInstalled(targetDir?: string, onProgress?: ProgressCallback): Promise<string>;
 }
 //# sourceMappingURL=installer.d.ts.map
