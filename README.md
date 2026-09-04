@@ -31,7 +31,7 @@ Danser AutoFetch automates this entire pipeline:
 
 ---
 
-## Strengths & Advantages (Điểm mạnh)
+## Strengths & Advantages
 
 - **Interactive Modern Terminal UX:** Clean, minimalist ASCII cards and live interactive status box with progress bar, ETA, and FPS indicators.
 - **Zero-Setup First Boot:** If `danser-go` is not found on your system, it automatically downloads and configures the latest release directly from GitHub.
@@ -47,7 +47,7 @@ Danser AutoFetch automates this entire pipeline:
 
 ---
 
-## Limitations & Technical Considerations (Điểm yếu & Giới hạn)
+## Limitations & Technical Considerations
 
 - **Network Dependency for New Maps:** Auto-fetching requires an active internet connection the first time an uncached beatmap is rendered.
 - **Unranked / Unsubmitted Map Limitations:** If a replay was played on a completely private local map that does not exist on public osu! mirrors, the `.osz` cannot be fetched automatically and must be placed manually in Danser's `Songs` folder.
