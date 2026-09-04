@@ -44,6 +44,7 @@ exports.SkinManager = void 0;
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const adm_zip_1 = __importDefault(require("adm-zip"));
+const ui_1 = require("./ui");
 class SkinManager {
     skinsDir;
     osuExportsDir;
@@ -60,18 +61,18 @@ class SkinManager {
         let rawPath = sourcePathOrUrl.trim().replace(/^["']|["']$/g, '');
         // 1. Direct URL download
         if (rawPath.startsWith('http://') || rawPath.startsWith('https://')) {
-            console.log(`[DOWNLOAD] Fetching skin from URL: ${rawPath}...`);
+            (0, ui_1.printStatus)('skin', `fetching skin from url: ${rawPath.toLowerCase()}...`);
             const tempOsk = path.join(this.skinsDir, '_temp_import.osk');
             try {
                 const resp = await fetch(rawPath, { headers: { 'User-Agent': 'danser-autofetch' } });
                 if (!resp.ok)
-                    throw new Error(`HTTP Error ${resp.status}`);
+                    throw new Error(`http error ${resp.status}`);
                 const arrayBuffer = await resp.arrayBuffer();
                 fs.writeFileSync(tempOsk, Buffer.from(arrayBuffer));
                 rawPath = tempOsk;
             }
             catch (e) {
-                console.log(`[ERROR] Failed to download skin from URL: ${e.message}`);
+                (0, ui_1.printStatus)('skin', `failed to download skin from url: ${e.message.toLowerCase()}`, 'error');
                 return null;
             }
         }
@@ -90,7 +91,7 @@ class SkinManager {
                 }
                 fs.cpSync(cleanPath, dst, { recursive: true });
             }
-            console.log(`[SUCCESS] Imported skin folder: '${skinName}'`);
+            (0, ui_1.printStatus)('skin', `imported skin folder: '${skinName.toLowerCase()}'`, 'success');
             return skinName;
         }
         // 3. Compressed skin archive (.osk / .zip)
@@ -98,7 +99,7 @@ class SkinManager {
         if (lower.endsWith('.osk') || lower.endsWith('.zip')) {
             let rawName = path.basename(cleanPath).replace(/\.[^/.]+$/, '');
             if (rawName === '_temp_import') {
-                rawName = 'Imported_Skin';
+                rawName = 'imported_skin';
             }
             // Remove duplicate markers like (1), (2)
             if (rawName.includes(' (') && rawName.endsWith(')')) {
@@ -111,14 +112,14 @@ class SkinManager {
             try {
                 const zip = new adm_zip_1.default(cleanPath);
                 zip.extractAllTo(dst, true);
-                console.log(`[SUCCESS] Unpacked and installed skin: '${rawName}'`);
+                (0, ui_1.printStatus)('skin', `unpacked and installed skin: '${rawName.toLowerCase()}'`, 'success');
                 if (cleanPath.endsWith('_temp_import.osk') && fs.existsSync(cleanPath)) {
                     fs.unlinkSync(cleanPath);
                 }
                 return rawName;
             }
             catch (e) {
-                console.log(`[ERROR] Failed to unpack skin archive: ${e.message}`);
+                (0, ui_1.printStatus)('skin', `failed to unpack skin archive: ${e.message.toLowerCase()}`, 'error');
                 return null;
             }
         }
