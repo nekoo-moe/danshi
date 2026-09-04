@@ -44,9 +44,10 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.DanserInstaller = void 0;
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
+const promises_1 = require("stream/promises");
 const adm_zip_1 = __importDefault(require("adm-zip"));
 const ui_1 = require("./ui");
-const USER_AGENT = 'danser-autofetch/1.3.7 (https://github.com/heiznerd/danser-autofetch)';
+const USER_AGENT = 'danser-autofetch/1.4.1 (https://github.com/heiznerd/danser-autofetch)';
 const GITHUB_API_URL = 'https://api.github.com/repos/Wieku/danser-go/releases/latest';
 class DanserInstaller {
     static getPlatformKeyword() {
@@ -134,6 +135,12 @@ class DanserInstaller {
         }
         const asset = await this.resolveDownloadUrl();
         const tempZip = path.join(path.dirname(installDir), `_temp_${asset.name}`);
+        if (fs.existsSync(tempZip)) {
+            try {
+                fs.unlinkSync(tempZip);
+            }
+            catch { }
+        }
         if (!fs.existsSync(path.dirname(installDir))) {
             fs.mkdirSync(path.dirname(installDir), { recursive: true });
         }
@@ -178,8 +185,15 @@ class DanserInstaller {
                 }
             }
             fileStream.end();
+            await (0, promises_1.finished)(fileStream);
             if (!onProgress)
                 (0, ui_1.finishProgress)();
+            if (totalBytes > 0 && downloaded < totalBytes) {
+                throw new Error(`download interrupted: received ${downloaded} of ${totalBytes} bytes`);
+            }
+            if (!fs.existsSync(tempZip) || fs.statSync(tempZip).size < 10240) {
+                throw new Error('downloaded danser archive is empty or incomplete');
+            }
             if (onProgress) {
                 onProgress({ processName: 'setup', percent: 100, detail: 'unpacking', log: 'extracting and configuring danser-go...' });
             }
@@ -193,7 +207,10 @@ class DanserInstaller {
             zip.extractAllTo(installDir, true);
             // Clean up temporary zip
             if (fs.existsSync(tempZip)) {
-                fs.unlinkSync(tempZip);
+                try {
+                    fs.unlinkSync(tempZip);
+                }
+                catch { }
             }
             // Make binaries executable on POSIX systems
             if (process.platform !== 'win32') {
@@ -269,7 +286,10 @@ class DanserInstaller {
         }
         catch (err) {
             if (fs.existsSync(tempZip)) {
-                fs.unlinkSync(tempZip);
+                try {
+                    fs.unlinkSync(tempZip);
+                }
+                catch { }
             }
             throw new Error(`Auto-installation failed: ${err.message}`);
         }

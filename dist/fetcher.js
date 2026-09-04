@@ -41,9 +41,10 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.BeatmapFetcher = void 0;
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
+const promises_1 = require("stream/promises");
 const ui_1 = require("./ui");
 const calculator_1 = require("./calculator");
-const USER_AGENT = 'danser-autofetch/1.3.7 (https://github.com/heiznerd/danser-autofetch)';
+const USER_AGENT = 'danser-autofetch/1.4.1 (https://github.com/heiznerd/danser-autofetch)';
 class BeatmapFetcher {
     songsDir;
     constructor(songsDir) {
@@ -552,7 +553,14 @@ class BeatmapFetcher {
                 }
                 const totalBytes = Number(resp.headers.get('content-length')) || 0;
                 let downloaded = 0;
-                const fileStream = fs.createWriteStream(targetOsz);
+                const tempOsz = `${targetOsz}.download`;
+                if (fs.existsSync(tempOsz)) {
+                    try {
+                        fs.unlinkSync(tempOsz);
+                    }
+                    catch { }
+                }
+                const fileStream = fs.createWriteStream(tempOsz);
                 const reader = resp.body.getReader();
                 while (true) {
                     const { done, value } = await reader.read();
@@ -580,10 +588,21 @@ class BeatmapFetcher {
                     }
                 }
                 fileStream.end();
+                await (0, promises_1.finished)(fileStream);
                 if (!onProgress)
                     (0, ui_1.finishProgress)();
+                if (totalBytes > 0 && downloaded < totalBytes) {
+                    throw new Error(`download interrupted: received ${downloaded} of ${totalBytes} bytes`);
+                }
                 // Validate downloaded file is larger than 10KB (avoid HTML error pages)
-                if (fs.existsSync(targetOsz) && fs.statSync(targetOsz).size > 10240) {
+                if (fs.existsSync(tempOsz) && fs.statSync(tempOsz).size > 10240) {
+                    if (fs.existsSync(targetOsz)) {
+                        try {
+                            fs.unlinkSync(targetOsz);
+                        }
+                        catch { }
+                    }
+                    fs.renameSync(tempOsz, targetOsz);
                     if (onProgress) {
                         onProgress({
                             processName: 'mirror',
@@ -598,19 +617,34 @@ class BeatmapFetcher {
                     return true;
                 }
                 else {
-                    if (fs.existsSync(targetOsz))
-                        fs.unlinkSync(targetOsz);
+                    if (fs.existsSync(tempOsz)) {
+                        try {
+                            fs.unlinkSync(tempOsz);
+                        }
+                        catch { }
+                    }
                 }
             }
             catch (err) {
+                const tempOsz = `${targetOsz}.download`;
+                if (fs.existsSync(tempOsz)) {
+                    try {
+                        fs.unlinkSync(tempOsz);
+                    }
+                    catch { }
+                }
                 if (onProgress) {
                     onProgress({ processName: 'mirror', log: `${mirror.name.toLowerCase()} failed: ${err.message.toLowerCase()}` });
                 }
                 else {
                     (0, ui_1.printStatus)('mirror', `${mirror.name.toLowerCase()} failed: ${err.message.toLowerCase()}`, 'warning');
                 }
-                if (fs.existsSync(targetOsz))
-                    fs.unlinkSync(targetOsz);
+                if (fs.existsSync(targetOsz)) {
+                    try {
+                        fs.unlinkSync(targetOsz);
+                    }
+                    catch { }
+                }
             }
         }
         return false;

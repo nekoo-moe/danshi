@@ -6,10 +6,11 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { finished } from 'stream/promises';
 import AdmZip from 'adm-zip';
 import { printStatus, renderProgress, finishProgress, ProgressCallback } from './ui';
 
-const USER_AGENT = 'danser-autofetch/1.3.7 (https://github.com/heiznerd/danser-autofetch)';
+const USER_AGENT = 'danser-autofetch/1.4.1 (https://github.com/heiznerd/danser-autofetch)';
 const GITHUB_API_URL = 'https://api.github.com/repos/Wieku/danser-go/releases/latest';
 
 export interface DanserReleaseAsset {
@@ -111,6 +112,12 @@ export class DanserInstaller {
     const asset = await this.resolveDownloadUrl();
     const tempZip = path.join(path.dirname(installDir), `_temp_${asset.name}`);
 
+    if (fs.existsSync(tempZip)) {
+      try {
+        fs.unlinkSync(tempZip);
+      } catch {}
+    }
+
     if (!fs.existsSync(path.dirname(installDir))) {
       fs.mkdirSync(path.dirname(installDir), { recursive: true });
     }
@@ -158,7 +165,16 @@ export class DanserInstaller {
       }
 
       fileStream.end();
+      await finished(fileStream);
       if (!onProgress) finishProgress();
+
+      if (totalBytes > 0 && downloaded < totalBytes) {
+        throw new Error(`download interrupted: received ${downloaded} of ${totalBytes} bytes`);
+      }
+
+      if (!fs.existsSync(tempZip) || fs.statSync(tempZip).size < 10240) {
+        throw new Error('downloaded danser archive is empty or incomplete');
+      }
 
       if (onProgress) {
         onProgress({ processName: 'setup', percent: 100, detail: 'unpacking', log: 'extracting and configuring danser-go...' });
@@ -175,7 +191,9 @@ export class DanserInstaller {
 
       // Clean up temporary zip
       if (fs.existsSync(tempZip)) {
-        fs.unlinkSync(tempZip);
+        try {
+          fs.unlinkSync(tempZip);
+        } catch {}
       }
 
       // Make binaries executable on POSIX systems
@@ -261,7 +279,9 @@ export class DanserInstaller {
       return installDir;
     } catch (err: any) {
       if (fs.existsSync(tempZip)) {
-        fs.unlinkSync(tempZip);
+        try {
+          fs.unlinkSync(tempZip);
+        } catch {}
       }
       throw new Error(`Auto-installation failed: ${err.message}`);
     }
