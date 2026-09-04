@@ -116,10 +116,19 @@ export function printReplayCard(
   const innerWidth = width - 4;
   const halfCol = Math.floor((innerWidth - 3) / 2);
 
-  const beatmapTitle = meta?.artist && meta?.title
-    ? `${meta.artist} - ${meta.title}${meta.diff ? ` [${meta.diff}]` : ''}`
-    : (meta?.title ? `${meta.title}${meta.diff ? ` [${meta.diff}]` : ''}` : path.basename(replayPath));
-  const cleanTitle = truncate(beatmapTitle.toLowerCase(), innerWidth - 12);
+  let beatmapTitle: string;
+  if (meta?.artist && meta?.title) {
+    beatmapTitle = `${meta.artist} - ${meta.title}${meta.diff ? ` [${meta.diff}]` : ''}`;
+  } else if (meta?.title) {
+    beatmapTitle = `${meta.title}${meta.diff ? ` [${meta.diff}]` : ''}`;
+  } else if (meta?.beatmapId) {
+    beatmapTitle = `beatmap #${meta.beatmapId}`;
+  } else {
+    beatmapTitle = path.basename(replayPath).replace(/\.osr$/i, '');
+  }
+
+  const maxTitleWidth = Math.max(20, innerWidth - 14);
+  const cleanTitle = truncate(beatmapTitle.toLowerCase(), maxTitleWidth);
   const modeNames = ['osu! standard', 'taiko', 'catch the beat', 'osu!mania'];
   const modeStr = replay.mode !== undefined && modeNames[replay.mode] ? modeNames[replay.mode] : 'osu! standard';
 
