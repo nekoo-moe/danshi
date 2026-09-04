@@ -4,6 +4,7 @@
  * Catboy/Mino, Sayobot, osu.direct, Nerinyan.
  */
 import { BeatmapInfo, FilenameMetadata } from './types';
+import { ProgressCallback } from './ui';
 export declare class BeatmapFetcher {
     private songsDir;
     constructor(songsDir: string);
@@ -18,9 +19,9 @@ export declare class BeatmapFetcher {
     fetchByMd5Nerinyan(md5: string): Promise<BeatmapInfo | null>;
     parseReplayFilename(filename: string): FilenameMetadata;
     searchMirrorWithMetadata(meta: FilenameMetadata): Promise<BeatmapInfo | null>;
-    resolveBeatmap(md5: string, filenameHint?: string): Promise<BeatmapInfo | null>;
-    downloadFromMirrors(sid: number | string, targetOsz: string): Promise<boolean>;
-    ensureBeatmap(md5: string, filenameHint?: string): Promise<{
+    resolveBeatmap(md5: string, filenameHint?: string, onProgress?: ProgressCallback): Promise<BeatmapInfo | null>;
+    downloadFromMirrors(sid: number | string, targetOsz: string, onProgress?: ProgressCallback): Promise<boolean>;
+    ensureBeatmap(md5: string, filenameHint?: string, onProgress?: ProgressCallback): Promise<{
         success: boolean;
         message: string;
     }>;
