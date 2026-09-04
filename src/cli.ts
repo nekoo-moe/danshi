@@ -311,25 +311,34 @@ export async function run(): Promise<void> {
   }
 
   const initialSongsDir = path.join(targetDanserDir, 'Songs');
-  const meta = new BeatmapFetcher(initialSongsDir).parseReplayFilename(replayPath);
+  const fetcher = new BeatmapFetcher(initialSongsDir);
+  const meta = fetcher.parseReplayFilename(replayPath);
   let ppResult: any = null;
+
   if (replayInfo.beatmapMd5) {
     const osuFile = PPCalculator.findOsuFileInSongs(initialSongsDir, replayInfo.beatmapMd5, meta.diff);
     if (osuFile) {
       const osuMeta = PPCalculator.extractOsuMeta(osuFile);
-      if (!meta.beatmapId && osuMeta.beatmapId) {
-        meta.beatmapId = osuMeta.beatmapId;
-      }
-      if (!meta.title && osuMeta.title) {
-        meta.title = osuMeta.title;
-      }
-      if (!meta.artist && osuMeta.artist) {
-        meta.artist = osuMeta.artist;
-      }
-      if (!meta.diff && osuMeta.diff) {
-        meta.diff = osuMeta.diff;
-      }
+      if (osuMeta.beatmapId) meta.beatmapId = osuMeta.beatmapId;
+      if (osuMeta.title) meta.title = osuMeta.title;
+      if (osuMeta.artist) meta.artist = osuMeta.artist;
+      if (osuMeta.diff) meta.diff = osuMeta.diff;
       ppResult = PPCalculator.calculate(osuFile, replayInfo);
+    }
+
+    // If artist or title is still missing, query mirror networks to resolve full beatmap metadata
+    if ((!meta.artist || !meta.title || !meta.diff) && replayInfo.beatmapMd5) {
+      try {
+        const resolved = await fetcher.resolveBeatmap(replayInfo.beatmapMd5, replayPath);
+        if (resolved) {
+          if (resolved.artist) meta.artist = resolved.artist;
+          if (resolved.title) meta.title = resolved.title;
+          if (resolved.version || resolved.diff) meta.diff = resolved.version || resolved.diff;
+          if (resolved.beatmapId) meta.beatmapId = resolved.beatmapId;
+        }
+      } catch {
+        // Fallback silently if offline or lookup fails
+      }
     }
   }
 
