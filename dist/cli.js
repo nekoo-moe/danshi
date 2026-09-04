@@ -50,6 +50,7 @@ const skins_1 = require("./skins");
 const renderer_1 = require("./renderer");
 const calculator_1 = require("./calculator");
 const installer_1 = require("./installer");
+const ui_1 = require("./ui");
 const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf-8'));
 function parseResolution(input) {
     if (!input)
@@ -237,50 +238,122 @@ function getDefaultPaths() {
     const danserDir = renderer_1.DanserRenderer.resolveDanserDir();
     return { danserDir, outputDir, osuExportsDir };
 }
-function printBanner() {
-    console.log(`
-==================================================================
-   DANSER AUTOFETCH v${packageJson.version} (TypeScript / Node.js)
-   Automated osu! Replay Video Renderer (Cross-Platform)
-   GitHub: https://github.com/heiznerd/danser-autofetch
-   NPM:    https://www.npmjs.com/package/danser-autofetch
-==================================================================
-`);
+function displayBanner() {
+    (0, ui_1.printBanner)(packageJson.version);
 }
 async function run() {
     const defaults = getDefaultPaths();
     const program = new commander_1.Command();
     program
         .name('danser-autofetch')
-        .description('Auto-fetch beatmaps and render osu! replay files (.osr) into MP4 videos using Danser across Windows, Linux, and macOS.')
-        .version(packageJson.version, '-v, --version', 'Output program version')
-        .argument('[replay]', 'Path to the osu! replay file (.osr)')
-        .option('-s, --skin <skin>', 'Skin name, local file path (.osk/.zip), folder path, or direct download URL')
-        .option('-r, --resolution <resolution>', 'Output video resolution: 480p, 720p, 1080p, 1440p (2K), 4K, or custom WxH (e.g. 1920x1080)', '1080p')
-        .option('--fps <fps>', 'Output video framerate (e.g. 30, 60, 120)', (val) => parseInt(val, 10), 60)
-        .option('--import-skin <pathOrUrl>', 'Import a new skin from a local path (.osk/.zip/folder) or download URL')
-        .option('-d, --danser-dir <path>', 'Path to Danser directory', defaults.danserDir)
-        .option('-o, --output-dir <path>', 'Directory to store output MP4 videos', defaults.outputDir)
+        .description('auto-fetch beatmaps and render osu! replay files (.osr) into mp4 videos using danser across windows, linux, and macos.')
+        .version(packageJson.version, '-v, --version', 'output program version')
+        .argument('[replay]', 'path to the osu! replay file (.osr)')
+        .option('-s, --skin <skin>', 'skin name, local file path (.osk/.zip), folder path, or direct download url')
+        .option('-r, --resolution <resolution>', 'output video resolution: 480p, 720p, 1080p, 1440p (2k), 4k, or custom wxh (e.g. 1920x1080)', '1080p')
+        .option('--fps <fps>', 'output video framerate (e.g. 30, 60, 120)', (val) => parseInt(val, 10), 60)
+        .option('--import-skin <pathOrUrl>', 'import a new skin from a local path (.osk/.zip/folder) or download url')
+        .option('-d, --danser-dir <path>', 'path to danser directory', defaults.danserDir)
+        .option('-o, --output-dir <path>', 'directory to store output mp4 videos', defaults.outputDir)
         .option('--exports-dir <path>', 'osu! lazer exports directory', defaults.osuExportsDir)
-        .option('--list-skins', 'List all available skins in Danser and exit')
-        .option('--sync-skins', 'Manually sync skins from osu! exports and Downloads folders')
+        .option('--list-skins', 'list all available skins in danser and exit')
+        .option('--sync-skins', 'manually sync skins from osu! exports and downloads folders')
+        .option('--verbose', 'show detailed log output instead of compact status')
         .allowUnknownOption(true);
     program.parse(process.argv);
     const options = program.opts();
     const replayArg = program.args[0];
-    printBanner();
-    // 1. Auto-detect or Auto-install Danser on first boot
+    displayBanner();
+    const targetDanserDir = options.danserDir || defaults.danserDir;
+    // 1. explicit skin import
+    if (options.importSkin) {
+        const skinManager = new skins_1.SkinManager(path.join(targetDanserDir, 'Skins'), options.exportsDir);
+        const importedName = await skinManager.importSkin(options.importSkin);
+        if (importedName) {
+            (0, ui_1.printStatus)('skin', `added new skin: '${importedName.toLowerCase()}'`, 'success');
+            (0, ui_1.printStatus)('usage', `danser-record <replay.osr> -s "${importedName.toLowerCase()}"`);
+        }
+        return;
+    }
+    // 2. manual skin sync
+    if (options.syncSkins) {
+        const skinManager = new skins_1.SkinManager(path.join(targetDanserDir, 'Skins'), options.exportsDir);
+        const imported = await skinManager.syncFromSources();
+        (0, ui_1.printStatus)('skin', `synchronized ${imported} skin(s) from system folders into danser.`, 'success');
+        return;
+    }
+    // 3. list skins
+    if (options.listSkins) {
+        const skinManager = new skins_1.SkinManager(path.join(targetDanserDir, 'Skins'), options.exportsDir);
+        const skins = skinManager.listSkins();
+        (0, ui_1.printSkinsList)(skins);
+        return;
+    }
+    // 4. resolve replay path
+    let replayPath = null;
+    if (replayArg) {
+        replayPath = resolveReplayPath(replayArg, options.exportsDir, targetDanserDir);
+        if (!replayPath) {
+            (0, ui_1.printErrorCard)('replay not found', `replay file not found: '${replayArg.toLowerCase()}'`, [
+                'searched in: current directory, downloads, documents, desktop, and osu! exports folder.',
+            ]);
+            process.exit(1);
+        }
+    }
+    else {
+        // if no replay argument was provided, try picking the newest replay automatically
+        replayPath = resolveReplayPath(undefined, options.exportsDir, targetDanserDir);
+        if (!replayPath) {
+            program.help();
+            process.exit(1);
+        }
+    }
+    // 5. parse replay header and compute preview PP if beatmap is already present
+    let replayInfo = {};
+    try {
+        replayInfo = (0, parser_1.parseReplay)(replayPath);
+    }
+    catch {
+        replayInfo = {};
+    }
+    const initialSongsDir = path.join(targetDanserDir, 'Songs');
+    const meta = new fetcher_1.BeatmapFetcher(initialSongsDir).parseReplayFilename(replayPath);
+    let ppResult = null;
+    if (replayInfo.beatmapMd5) {
+        const osuFile = calculator_1.PPCalculator.findOsuFileInSongs(initialSongsDir, replayInfo.beatmapMd5, meta.diff);
+        if (osuFile) {
+            const osuMeta = calculator_1.PPCalculator.extractOsuMeta(osuFile);
+            if (!meta.beatmapId && osuMeta.beatmapId) {
+                meta.beatmapId = osuMeta.beatmapId;
+            }
+            if (!meta.title && osuMeta.title) {
+                meta.title = osuMeta.title;
+            }
+            if (!meta.artist && osuMeta.artist) {
+                meta.artist = osuMeta.artist;
+            }
+            if (!meta.diff && osuMeta.diff) {
+                meta.diff = osuMeta.diff;
+            }
+            ppResult = calculator_1.PPCalculator.calculate(osuFile, replayInfo);
+        }
+    }
+    // render unified replay card immediately below banner with zero empty lines
+    (0, ui_1.printReplayCard)(replayPath, replayInfo, meta, ppResult);
+    // 6. start dynamic status box
+    const statusBox = new ui_1.StatusBox(Boolean(options.verbose));
+    statusBox.start('setup', 'initializing danser environment...');
     let danserDir = options.danserDir;
     try {
-        danserDir = await installer_1.DanserInstaller.ensureInstalled(options.danserDir);
+        danserDir = await installer_1.DanserInstaller.ensureInstalled(options.danserDir, (p) => statusBox.update(p));
     }
     catch (err) {
-        console.error(`[ERROR] Failed to initialize Danser: ${err.message}`);
+        statusBox.finish();
+        (0, ui_1.printErrorCard)('initialization failed', `failed to initialize danser: ${err.message.toLowerCase()}`);
         process.exit(1);
     }
     const renderer = new renderer_1.DanserRenderer(danserDir, options.outputDir);
     const resolution = parseResolution(options.resolution);
-    // Ensure Danser configuration is pre-configured and written immediately
     renderer.configureSettings({
         useSkinCursor: true,
         useSkinHitsounds: true,
@@ -289,113 +362,31 @@ async function run() {
         fps: options.fps,
         resolution,
     });
-    const skinManager = new skins_1.SkinManager(path.join(renderer.danserDir, 'Skins'), options.exportsDir);
-    // 2. Explicit Skin Import
-    if (options.importSkin) {
-        const importedName = await skinManager.importSkin(options.importSkin);
-        if (importedName) {
-            console.log(`[SUCCESS] Added new skin: '${importedName}'`);
-            console.log(`Usage: danser-record <replay.osr> -s "${importedName}"`);
-        }
-        return;
-    }
-    // 3. Manual Skin Sync
-    if (options.syncSkins) {
-        const imported = await skinManager.syncFromSources();
-        console.log(`[INFO] Synchronized ${imported} skin(s) from system folders into Danser.`);
-        return;
-    }
-    // 4. List Skins
-    if (options.listSkins) {
-        const skins = skinManager.listSkins();
-        if (skins.length > 0) {
-            console.log(`Available Skins (${skins.length} total):`);
-            for (const s of skins.sort()) {
-                console.log(`  - ${s}`);
-            }
-        }
-        else {
-            console.log('No custom skins installed yet. Add one with: danser-record --import-skin <path/to/skin.osk>');
-        }
-        return;
-    }
-    let replayPath = null;
-    if (replayArg) {
-        replayPath = resolveReplayPath(replayArg, options.exportsDir, renderer.danserDir);
-        if (!replayPath) {
-            console.error(`[ERROR] Replay file not found: '${replayArg}'`);
-            console.error(`Searched in: Current directory, Downloads, Documents, Desktop, and osu! exports folder.`);
-            process.exit(1);
-        }
-        const cleanReplay = replayArg.trim().replace(/^["']|["']$/g, '');
-        if (path.resolve(cleanReplay) !== path.resolve(replayPath)) {
-            console.log(`[RESOLVE] Auto-located replay file: ${replayPath}`);
-        }
-    }
-    else {
-        // If no replay argument was provided, try picking the newest replay automatically
-        replayPath = resolveReplayPath(undefined, options.exportsDir, renderer.danserDir);
-        if (replayPath) {
-            console.log(`[AUTO-DETECT] No replay specified, using newest replay found: ${path.basename(replayPath)}`);
-            console.log(`Path: ${replayPath}`);
-        }
-        else {
-            program.help();
-            process.exit(1);
-        }
-    }
-    console.log(`Analyzing Replay: ${path.basename(replayPath)}`);
-    console.log(`Output Format:    ${resolution[0]}x${resolution[1]} @ ${options.fps} FPS`);
-    let replayInfo = {};
-    try {
-        replayInfo = (0, parser_1.parseReplay)(replayPath);
-        console.log(`Player:           ${replayInfo.playerName}`);
-        console.log(`Mods:             ${replayInfo.modsString}`);
-        console.log(`Score:            ${replayInfo.totalScore.toLocaleString()} | Max Combo: ${replayInfo.maxCombo}x`);
-        console.log(`Beatmap MD5:      ${replayInfo.beatmapMd5}`);
-    }
-    catch (e) {
-        console.warn(`[WARN] Could not parse replay header: ${e.message}`);
-    }
     const songsDir = path.join(renderer.danserDir, 'Songs');
     if (replayInfo.beatmapMd5) {
         const fetcher = new fetcher_1.BeatmapFetcher(songsDir);
-        const { success, message } = await fetcher.ensureBeatmap(replayInfo.beatmapMd5, replayPath);
-        console.log(`Beatmap Status:   ${message}`);
+        const { success, message } = await fetcher.ensureBeatmap(replayInfo.beatmapMd5, replayPath, (p) => statusBox.update(p));
         if (!success) {
-            console.warn('[WARN] Beatmap could not be auto-downloaded. Proceeding with existing local database...');
+            statusBox.update({ processName: 'fetch', log: message.toLowerCase() });
         }
     }
-    // Calculate 2026 PP Performance Points
-    const meta = new fetcher_1.BeatmapFetcher(songsDir).parseReplayFilename(replayPath);
-    const osuFile = calculator_1.PPCalculator.findOsuFileInSongs(songsDir, replayInfo.beatmapMd5, meta.diff);
-    if (osuFile) {
-        const ppResult = calculator_1.PPCalculator.calculate(osuFile, replayInfo);
-        if (ppResult) {
-            console.log(`\n==================================================================`);
-            console.log(`2026 Performance Points Breakdown (Latest July 2026 Rework)`);
-            console.log(`Star Rating:      ${ppResult.stars}* (Aim: ${ppResult.aimStars}* | Speed: ${ppResult.speedStars}*)`);
-            console.log(`Performance:      ${ppResult.totalPP} PP (Aim: ${ppResult.aimPP} | Speed: ${ppResult.speedPP} | Acc: ${ppResult.accPP})`);
-            console.log(`If 100% SS:       ${ppResult.ssPP} PP (Max Combo: ${ppResult.maxCombo}x)`);
-            console.log(`==================================================================`);
-        }
-    }
-    // Skin matching or on-the-fly import
+    const skinManager = new skins_1.SkinManager(path.join(renderer.danserDir, 'Skins'), options.exportsDir);
     let selectedSkin;
     if (options.skin) {
         const matched = await skinManager.matchSkin(options.skin);
-        if (matched) {
-            selectedSkin = matched;
-            console.log(`Using Skin:       '${selectedSkin}'`);
-        }
-        else {
-            selectedSkin = options.skin;
-            console.log(`Using Custom Skin:'${selectedSkin}'`);
-        }
+        selectedSkin = matched || options.skin;
     }
+    statusBox.update({
+        processName: 'rendering',
+        percent: 0,
+        detail: `${resolution[0]}x${resolution[1]} @ ${options.fps} fps`,
+        log: 'launching danser-cli...',
+    });
     const startTime = Date.now();
-    const exitCode = await renderer.runRecord(replayPath, selectedSkin, program.args.slice(1));
-    // Detect generated video across renderer.outputDir and danser's internal videos directory
+    const renderResult = await renderer.runRecord(replayPath, selectedSkin, options.verbose, (p) => statusBox.update(p), program.args.slice(1));
+    const exitCode = renderResult.exitCode;
+    statusBox.finish();
+    // detect generated video across renderer.outputDir and danser's internal videos directory
     const searchDirs = [renderer.outputDir];
     const danserInternalVideos = path.join(renderer.danserDir, 'videos');
     if (path.resolve(danserInternalVideos) !== path.resolve(renderer.outputDir)) {
@@ -426,7 +417,7 @@ async function run() {
                 break;
         }
     }
-    // If video was saved to danser's internal folder instead of outputDir, relocate it
+    // if video was saved to danser's internal folder instead of outputDir, relocate it
     if (finalVideoPath && path.resolve(path.dirname(finalVideoPath)) !== path.resolve(renderer.outputDir)) {
         try {
             fs.mkdirSync(renderer.outputDir, { recursive: true });
@@ -444,28 +435,24 @@ async function run() {
                 finalVideoPath = targetFile;
             }
         }
-        catch (e) {
-            console.warn(`[WARN] Could not move video to target outputDir: ${e.message}`);
+        catch {
+            // Ignore file relocation error
         }
     }
     if (exitCode === 0 && finalVideoPath) {
-        console.log('\n' + '='.repeat(66));
-        console.log('Rendering Complete! Video saved to:');
-        console.log(`File:        ${finalVideoPath}`);
-        console.log(`Destination: ${renderer.outputDir}`);
-        console.log('='.repeat(66));
+        (0, ui_1.printCompletionCard)(finalVideoPath, resolution, options.fps, renderer.outputDir);
     }
     else {
-        console.log('\n' + '='.repeat(66));
-        console.log('[ERROR] Rendering ended without producing a video.');
-        console.log("If the beatmap was not found, please ensure the beatmap (.osz) is in Danser's Songs folder.");
-        console.log('='.repeat(66));
+        const details = renderResult.errorDetails && renderResult.errorDetails.length > 0
+            ? renderResult.errorDetails
+            : ["if the beatmap was not found, please ensure the beatmap (.osz) is in danser's songs folder."];
+        (0, ui_1.printErrorCard)('render incomplete', 'rendering ended without producing a video.', details);
         process.exit(exitCode === 0 ? 1 : exitCode);
     }
 }
 if (require.main === module) {
     run().catch((err) => {
-        console.error('[FATAL]', err);
+        (0, ui_1.printErrorCard)('runtime error', (err.message || String(err)).toLowerCase());
         process.exit(1);
     });
 }
