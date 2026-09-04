@@ -7,6 +7,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import AdmZip from 'adm-zip';
+import { printStatus, renderProgress, finishProgress, ProgressCallback } from './ui';
 
 const USER_AGENT = 'danser-autofetch/1.3.7 (https://github.com/heiznerd/danser-autofetch)';
 const GITHUB_API_URL = 'https://api.github.com/repos/Wieku/danser-go/releases/latest';
@@ -84,7 +85,7 @@ export class DanserInstaller {
     };
   }
 
-  static async ensureInstalled(targetDir?: string): Promise<string> {
+  static async ensureInstalled(targetDir?: string, onProgress?: ProgressCallback): Promise<string> {
     const installDir = targetDir
       ? path.resolve(targetDir.replace(/^~(?=$|\/|\\)/, process.env.HOME || process.env.USERPROFILE || ''))
       : this.getDefaultInstallDir();
@@ -100,9 +101,12 @@ export class DanserInstaller {
       return installDir;
     }
 
-    console.log(`\n[SETUP] Danser-go was not found on this machine.`);
-    console.log(`[SETUP] Performing first-boot auto-installation for [${process.platform}]...`);
-    console.log(`[SETUP] Target directory: ${installDir}`);
+    if (onProgress) {
+      onProgress({ processName: 'setup', percent: 0, log: 'checking danser-go release on github...' });
+    } else {
+      printStatus('setup', `danser-go not found. starting first-boot auto-installation for [${process.platform}]...`);
+      printStatus('setup', `install directory: ${installDir.toLowerCase()}`);
+    }
 
     const asset = await this.resolveDownloadUrl();
     const tempZip = path.join(path.dirname(installDir), `_temp_${asset.name}`);
@@ -111,12 +115,16 @@ export class DanserInstaller {
       fs.mkdirSync(path.dirname(installDir), { recursive: true });
     }
 
-    console.log(`[DOWNLOAD] Fetching ${asset.name} from GitHub...`);
+    if (onProgress) {
+      onProgress({ processName: 'download', percent: 0, log: `fetching ${asset.name.toLowerCase()}...` });
+    } else {
+      printStatus('download', `fetching ${asset.name.toLowerCase()} from github...`);
+    }
 
     try {
       const resp = await fetch(asset.downloadUrl, { headers: { 'User-Agent': USER_AGENT } });
       if (!resp.ok || !resp.body) {
-        throw new Error(`Failed to download Danser (HTTP ${resp.status}): ${resp.statusText}`);
+        throw new Error(`failed to download danser (http ${resp.status}): ${resp.statusText}`);
       }
 
       const totalBytes = Number(resp.headers.get('content-length')) || asset.size;
@@ -132,14 +140,31 @@ export class DanserInstaller {
           fileStream.write(Buffer.from(value));
           downloaded += value.length;
           if (totalBytes > 0) {
-            const percent = Math.floor((downloaded * 100) / totalBytes);
-            process.stdout.write(`\r[PROGRESS] Downloading Danser: ${percent}% (${Math.floor(downloaded / (1024 * 1024))} MB / ${Math.floor(totalBytes / (1024 * 1024))} MB)`);
+            const percent = (downloaded * 100) / totalBytes;
+            const downMb = (downloaded / (1024 * 1024)).toFixed(1);
+            const totMb = (totalBytes / (1024 * 1024)).toFixed(1);
+            if (onProgress) {
+              onProgress({
+                processName: 'download',
+                percent,
+                detail: `${downMb} / ${totMb} mb`,
+                log: `downloading ${asset.name.toLowerCase()}...`,
+              });
+            } else {
+              renderProgress('download', downloaded, totalBytes, 'mb');
+            }
           }
         }
       }
 
       fileStream.end();
-      console.log('\n[SETUP] Extracting and configuring Danser-go...');
+      if (!onProgress) finishProgress();
+
+      if (onProgress) {
+        onProgress({ processName: 'setup', percent: 100, detail: 'unpacking', log: 'extracting and configuring danser-go...' });
+      } else {
+        printStatus('setup', 'extracting and configuring danser-go...');
+      }
 
       if (!fs.existsSync(installDir)) {
         fs.mkdirSync(installDir, { recursive: true });
@@ -228,7 +253,11 @@ export class DanserInstaller {
         );
       }
 
-      console.log(`[SUCCESS] Danser-go has been successfully installed to: ${installDir}\n`);
+      if (onProgress) {
+        onProgress({ processName: 'setup', percent: 100, detail: 'completed', log: 'danser-go successfully installed' });
+      } else {
+        printStatus('danser', `danser-go successfully installed to: ${installDir.toLowerCase()}`, 'success');
+      }
       return installDir;
     } catch (err: any) {
       if (fs.existsSync(tempZip)) {
