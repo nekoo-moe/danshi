@@ -1,0 +1,118 @@
+﻿name: Release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version tag (e.g. v1.2)'
+        required: false
+        type: string
+
+jobs:
+  release:
+    name: Build & Release
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      startsWith(github.event.head_commit.message, 'release v') ||
+      startsWith(github.event.head_commit.message, 'Release v') ||
+      startsWith(github.event.head_commit.message, 'RELEASE v')
+    permissions:
+      contents: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Parse release version from commit
+        id: version_info
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.version }}" ]; then
+            RAW_TAG="${{ inputs.version }}"
+          else
+            COMMIT_MSG="${{ github.event.head_commit.message }}"
+            FIRST_LINE=$(echo "$COMMIT_MSG" | head -n 1)
+            RAW_TAG=$(echo "$FIRST_LINE" | sed -E 's/^[Rr][Ee][Ll][Ee][Aa][Ss][Ee][[:space:]]+//' | awk '{print $1}')
+          fi
+
+          # Ensure tag starts with 'v' like the commit message
+          if [[ ! "$RAW_TAG" =~ ^v ]]; then
+            TAG="v$RAW_TAG"
+          else
+            TAG="$RAW_TAG"
+          fi
+
+          # Format semver for package.json (e.g. v1.2 -> 1.2.0, v1.3.8 -> 1.3.8)
+          CLEAN_VER="${TAG#v}"
+          if [[ "$CLEAN_VER" =~ ^[0-9]+\.[0-9]+$ ]]; then
+            NPM_VER="${CLEAN_VER}.0"
+          else
+            NPM_VER="$CLEAN_VER"
+          fi
+
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "npm_version=$NPM_VER" >> $GITHUB_OUTPUT
+          echo "Release tag: $TAG"
+          echo "NPM version: $NPM_VER"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Sync package.json version
+        run: |
+          npm version ${{ steps.version_info.outputs.npm_version }} --no-git-tag-version --allow-same-version
+
+      - name: Build TypeScript
+        run: npm run build
+
+      - name: Tag new version in Git
+        run: |
+          TAG="${{ steps.version_info.outputs.tag }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists locally."
+          else
+            git tag -a "$TAG" -m "Release $TAG"
+            git push origin "$TAG"
+            echo "Successfully pushed tag $TAG to origin"
+          fi
+
+      - name: Publish to NPM
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Generate release notes
+        run: |
+          node .github/scripts/generate-release-notes.js "${{ steps.version_info.outputs.tag }}"
+
+      - name: Create GitHub Release
+        run: |
+          TAG="${{ steps.version_info.outputs.tag }}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists on GitHub. Updating release..."
+            gh release edit "$TAG" --title "danser-autofetch $TAG" --notes-file release_notes.md
+          else
+            echo "Creating new GitHub release for $TAG..."
+            gh release create "$TAG" \
+              --title "danser-autofetch $TAG" \
+              --notes-file release_notes.md
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
