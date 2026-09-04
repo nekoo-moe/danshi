@@ -41,7 +41,7 @@ export const MODS_MAP: Record<number, string> = {
 };
 
 export function parseMods(modsInt: number): string {
-  if (modsInt === 0) return 'NM';
+  if (modsInt === 0) return 'nm';
 
   let remainingMods = modsInt;
   // If Nightcore is present, ignore DoubleTime bit in string
@@ -57,11 +57,11 @@ export function parseMods(modsInt: number): string {
   for (const [bitStr, name] of Object.entries(MODS_MAP)) {
     const bit = Number(bitStr);
     if (bit !== 0 && (remainingMods & bit) !== 0) {
-      activeMods.push(name);
+      activeMods.push(name.toLowerCase());
     }
   }
 
-  return activeMods.length > 0 ? activeMods.join('+') : 'NM';
+  return activeMods.length > 0 ? activeMods.join('+') : 'nm';
 }
 
 export function parseReplay(filePath: string): ReplayMetadata {
