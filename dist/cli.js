@@ -317,25 +317,41 @@ async function run() {
         replayInfo = {};
     }
     const initialSongsDir = path.join(targetDanserDir, 'Songs');
-    const meta = new fetcher_1.BeatmapFetcher(initialSongsDir).parseReplayFilename(replayPath);
+    const fetcher = new fetcher_1.BeatmapFetcher(initialSongsDir);
+    const meta = fetcher.parseReplayFilename(replayPath);
     let ppResult = null;
     if (replayInfo.beatmapMd5) {
         const osuFile = calculator_1.PPCalculator.findOsuFileInSongs(initialSongsDir, replayInfo.beatmapMd5, meta.diff);
         if (osuFile) {
             const osuMeta = calculator_1.PPCalculator.extractOsuMeta(osuFile);
-            if (!meta.beatmapId && osuMeta.beatmapId) {
+            if (osuMeta.beatmapId)
                 meta.beatmapId = osuMeta.beatmapId;
-            }
-            if (!meta.title && osuMeta.title) {
+            if (osuMeta.title)
                 meta.title = osuMeta.title;
-            }
-            if (!meta.artist && osuMeta.artist) {
+            if (osuMeta.artist)
                 meta.artist = osuMeta.artist;
-            }
-            if (!meta.diff && osuMeta.diff) {
+            if (osuMeta.diff)
                 meta.diff = osuMeta.diff;
-            }
             ppResult = calculator_1.PPCalculator.calculate(osuFile, replayInfo);
+        }
+        // If artist or title is still missing, query mirror networks to resolve full beatmap metadata
+        if ((!meta.artist || !meta.title || !meta.diff) && replayInfo.beatmapMd5) {
+            try {
+                const resolved = await fetcher.resolveBeatmap(replayInfo.beatmapMd5, replayPath);
+                if (resolved) {
+                    if (resolved.artist)
+                        meta.artist = resolved.artist;
+                    if (resolved.title)
+                        meta.title = resolved.title;
+                    if (resolved.version || resolved.diff)
+                        meta.diff = resolved.version || resolved.diff;
+                    if (resolved.beatmapId)
+                        meta.beatmapId = resolved.beatmapId;
+                }
+            }
+            catch {
+                // Fallback silently if offline or lookup fails
+            }
         }
     }
     // render unified replay card immediately below banner with zero empty lines

@@ -25,6 +25,7 @@ export interface BeatmapInfo {
     title: string;
     artist: string;
     version?: string;
+    diff?: string;
     creator?: string;
     downloadUrl: string;
     source: string;
