@@ -76,7 +76,7 @@ exports.MODS_MAP = {
 };
 function parseMods(modsInt) {
     if (modsInt === 0)
-        return 'NM';
+        return 'nm';
     let remainingMods = modsInt;
     // If Nightcore is present, ignore DoubleTime bit in string
     if (remainingMods & 512) {
@@ -90,10 +90,10 @@ function parseMods(modsInt) {
     for (const [bitStr, name] of Object.entries(exports.MODS_MAP)) {
         const bit = Number(bitStr);
         if (bit !== 0 && (remainingMods & bit) !== 0) {
-            activeMods.push(name);
+            activeMods.push(name.toLowerCase());
         }
     }
-    return activeMods.length > 0 ? activeMods.join('+') : 'NM';
+    return activeMods.length > 0 ? activeMods.join('+') : 'nm';
 }
 function parseReplay(filePath) {
     const buffer = fs.readFileSync(filePath);
