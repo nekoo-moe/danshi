@@ -46,6 +46,7 @@ const path = __importStar(require("path"));
 const crypto = __importStar(require("crypto"));
 const adm_zip_1 = __importDefault(require("adm-zip"));
 const rosu_pp_js_1 = require("rosu-pp-js");
+const ui_1 = require("./ui");
 class PPCalculator {
     /**
      * Calculates modern 2026 PP and Star Rating for a replay against its .osu beatmap.
@@ -91,7 +92,7 @@ class PPCalculator {
             };
         }
         catch (e) {
-            console.warn(`[WARN] Could not calculate modern PP: ${e.message}`);
+            (0, ui_1.printStatus)('pp', `could not calculate modern pp: ${e.message.toLowerCase()}`, 'warning');
             return null;
         }
     }
@@ -149,6 +150,31 @@ class PPCalculator {
             }
         }
         return diffFallback;
+    }
+    /**
+     * Extracts metadata (beatmap ID, set ID, title, artist, difficulty name) from a .osu file.
+     */
+    static extractOsuMeta(osuFilePath) {
+        try {
+            if (!fs.existsSync(osuFilePath))
+                return {};
+            const content = fs.readFileSync(osuFilePath, 'utf-8');
+            const bidMatch = content.match(/^BeatmapID:\s*(\d+)/m);
+            const sidMatch = content.match(/^BeatmapSetID:\s*(\d+)/m);
+            const titleMatch = content.match(/^Title:\s*(.+)/m);
+            const artistMatch = content.match(/^Artist:\s*(.+)/m);
+            const versionMatch = content.match(/^Version:\s*(.+)/m);
+            return {
+                beatmapId: bidMatch ? parseInt(bidMatch[1], 10) : undefined,
+                beatmapSetId: sidMatch ? parseInt(sidMatch[1], 10) : undefined,
+                title: titleMatch ? titleMatch[1].trim() : undefined,
+                artist: artistMatch ? artistMatch[1].trim() : undefined,
+                diff: versionMatch ? versionMatch[1].trim() : undefined,
+            };
+        }
+        catch {
+            return {};
+        }
     }
 }
 exports.PPCalculator = PPCalculator;

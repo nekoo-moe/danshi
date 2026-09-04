@@ -24,5 +24,15 @@ export declare class PPCalculator {
      * Finds the .osu difficulty file in the Songs directory matching a beatmap MD5 or difficulty name.
      */
     static findOsuFileInSongs(songsDir: string, beatmapMd5?: string, diffHint?: string): string | null;
+    /**
+     * Extracts metadata (beatmap ID, set ID, title, artist, difficulty name) from a .osu file.
+     */
+    static extractOsuMeta(osuFilePath: string): {
+        beatmapId?: number;
+        beatmapSetId?: number;
+        title?: string;
+        artist?: string;
+        diff?: string;
+    };
 }
 //# sourceMappingURL=calculator.d.ts.map
