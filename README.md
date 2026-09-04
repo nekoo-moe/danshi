@@ -8,15 +8,13 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 
-Danser AutoFetch is a cross-platform CLI automation tool written in **TypeScript / Node.js** that bridges **osu! lazer** and **[danser-go](https://github.com/Wieku/danser-go)**. It automatically parses exported replay files (`.osr`), resolves and downloads missing beatmaps from high-speed mirror networks, manages custom skins, and renders 1080p 60FPS videos with zero manual effort.
+Danser AutoFetch is a cross-platform CLI automation tool written in **TypeScript / Node.js** that bridges **osu! lazer** and **[danser-go](https://github.com/Wieku/danser-go)**. It automatically discovers exported replay files (`.osr`), resolves and downloads missing beatmaps from high-speed mirror networks, manages custom skins, and renders high-definition gameplay videos with a modern, interactive terminal interface and zero manual effort.
 
 ---
 
-> **Note on Compatibility / Lưu ý tương thích:**
+> **Note on Compatibility**
 >
 > **EN:** This tool is designed and optimized specifically for **osu! lazer**. If you are using **osu! stable**, please consider using the upstream **[danser-go](https://github.com/Wieku/danser-go)** project directly to support the original author.
->
-> **VI:** Hoạt động tốt nhất khi sử dụng phiên bản **osu!lazer**, nếu bạn sử dụng bản **osu! stable**, hãy sử dụng trực tiếp **[danser-go](https://github.com/Wieku/danser-go)** để ủng hộ dự án chính.
 
 ---
 
@@ -24,23 +22,28 @@ Danser AutoFetch is a cross-platform CLI automation tool written in **TypeScript
 
 In **osu! lazer**, beatmaps, audio files, and background images are stored as fragmented, content-addressed hash blobs managed inside a Realm database (`client.realm`) rather than human-readable folders. Because Danser-go was originally architected for osu! stable's traditional folder hierarchy, rendering a replay exported from osu! lazer previously required manually downloading `.osz` files or extracting beatmap archives.
 
-Danser AutoFetch solves this by implementing an automated resolution pipeline:
-1. **Binary Replay Stream Parsing:** Uses Buffer & ULEB128 stream decoding to extract the beatmap MD5 checksum, player name, score, accuracy, and active mods.
-2. **Multi-Mirror Auto-Fetcher:** Queries community mirror APIs (*Catboy / Mino, Sayobot, Chimu*) to resolve the Beatmap Set ID and automatically download missing `.osz` packages in the background. If MD5 lookup fails due to unranked/updated diffs, it falls back to creator- and difficulty-aware text searches.
-3. **On-Demand Skin Management:** Imports local skin archives (`.osk`, `.zip`), directories, or direct URLs on demand without scanning or polluting the host environment.
-4. **Automated Danser Execution:** Injects native skin cursors, skin hitsounds, skips lead-in delays, resolves FFmpeg binaries, and encodes 1080p 60FPS video output.
+Danser AutoFetch automates this entire pipeline:
+1. **Auto-Discovery & Binary Stream Parsing:** Automatically scans your Downloads, Documents, Desktop, and osu! exports directory for the latest `.osr` replay if no file is provided. Uses Buffer & ULEB128 stream decoding to extract the beatmap MD5 checksum, player name, score, accuracy, judgements, and active mods.
+2. **Local Cache Fast-Path & Multi-Mirror Fetcher:** Immediately checks your local Danser `Songs` folder by MD5 before hitting the network. If missing, it queries community mirror networks (*Sayobot, Nerinyan, Mino / Catboy, Beatconnect, Chimu, osu.direct*) with automatic fallback to difficulty/creator matching.
+3. **Integrated 2026 Performance Points Engine:** Calculates Star Rating and modern Performance Points (Aim, Speed, Accuracy, 100% SS Max PP) using `rosu-pp-js` (July 2026 rework) before rendering begins.
+4. **On-Demand Skin Management:** Imports local skin archives (`.osk`, `.zip`), directories, or direct URLs on demand without cluttering the host environment.
+5. **Modern Terminal Interface & Live Encoding:** Features minimalist ASCII cards (brand banner, replay summary, completion card, diagnostic error card) and a dynamic real-time `StatusBox` that tracks encoding progress, FPS, and ETA via piped stdout/stderr.
 
 ---
 
 ## Strengths & Advantages (Điểm mạnh)
 
-- **One-Step CLI Workflow:** Transforms any exported `.osr` file into a high-definition MP4 video with a single command.
-- **Run Instantly via NPX:** No permanent installation required—can be executed on-the-fly using `npx danser-autofetch <replay.osr>`.
-- **Creator-Aware Smart Fallback:** Intelligently matches beatmap sets even if the local replay MD5 hash differs from mirror versions.
-- **Zero-Default Skin Footprint:** Does not clutter system directories by default. Skins are loaded purely on-demand via local path, folder, URL, or keyword.
-- **True Skin Asset Fidelity:** Automatically forces skin hitsounds (`IgnoreBeatmapSamples`), skin cursors (`UseSkinCursor`), long cursor trails, and skin combo colors.
-- **Lead-In Optimization:** Automatically bypasses opening intro pauses and seizure warnings to jump straight to active gameplay.
-- **Cross-Platform Compatibility:** Native support and path auto-detection for Linux, Windows, and macOS.
+- **Interactive Modern Terminal UX:** Clean, minimalist ASCII cards and live interactive status box with progress bar, ETA, and FPS indicators.
+- **Zero-Setup First Boot:** If `danser-go` is not found on your system, it automatically downloads and configures the latest release directly from GitHub.
+- **Smart Replay Auto-Discovery:** Run `danser-record` without arguments to automatically detect and render your most recently exported replay.
+- **Fast-Path Local Cache Check:** Verifies if the beatmap is already present locally via MD5 hash before making any network requests.
+- **Multi-Resolution Video Output:** Flexible `-r, --resolution` flag supporting `480p`, `720p`, `1080p`, `1440p` (2K), `4K`, or custom dimensions (e.g. `1920x1080`).
+- **July 2026 PP Breakdown:** Instantly previews Star Rating (Aim/Speed) and live PP (Aim, Speed, Acc, 100% SS) on the terminal replay card.
+- **Resilient Multi-Mirror Downloads:** Fallback chain across Sayobot, Nerinyan, Mino, Beatconnect, Chimu, and osu.direct with progress counters.
+- **Zero-Default Skin Footprint:** Skins are loaded purely on-demand via local path, folder, URL, or keyword without polluting system directories.
+- **True Skin Asset Fidelity:** Automatically enforces native skin hitsounds (`IgnoreBeatmapSamples`), skin cursors (`UseSkinCursor`), long cursor trails, and combo colors.
+- **Lead-In Optimization:** Bypasses opening intro pauses and seizure warnings to jump straight to active gameplay.
+- **Diagnostics & Error Reporting:** Captures tail process logs on failure to provide clear troubleshooting advice.
 
 ---
 
@@ -55,20 +58,22 @@ Danser AutoFetch solves this by implementing an automated resolution pipeline:
 
 ## Installation
 
-### 1. Prerequisites
-Ensure you have **[danser-go](https://github.com/Wieku/danser-go/releases)** installed:
-- **Linux:** `~/Applications/danser` or `~/.danser`.
-- **Windows:** Any folder (e.g., `%LOCALAPPDATA%\Programs\danser` or next to this repository).
-- **macOS:** `~/Applications/danser` or `~/Library/Application Support/danser`.
+### 1. Automated First-Boot (Recommended)
+You do **not** need to manually install Danser-go! When you run `danser-autofetch` for the first time, it automatically detects your OS and architecture, downloads the latest release from GitHub, unpacks it, and configures default settings.
 
-### 2. Install via NPM (Recommended)
+If you prefer to use an existing Danser-go installation, place it in standard locations or specify `-d, --danser-dir`:
+- **Linux:** `~/Applications/danser` or `~/.danser`
+- **Windows:** `%LOCALAPPDATA%\Programs\danser` or Danser folder next to the project
+- **macOS:** `~/Applications/danser` or `~/Library/Application Support/danser`
+
+### 2. Install via NPM
 ```bash
 npm install -g danser-autofetch
 ```
 
 Or run directly without installing using **NPX**:
 ```bash
-npx danser-autofetch /path/to/replay.osr
+npx danser-autofetch
 ```
 
 ### 3. Build from Source
@@ -84,33 +89,52 @@ npm link
 
 ## Usage Guide
 
-### Basic Rendering
-Pass the path to any exported `.osr` replay file:
+### 1. Basic Rendering
+Pass the path to any exported `.osr` replay file, or omit it to automatically detect the newest replay from your system:
 ```bash
+# Auto-pick the newest replay from Downloads, Documents, Desktop, or osu! exports:
+danser-record
+
+# Or specify a specific replay file:
 danser-record /path/to/replay.osr
 ```
 
-### Rendering with Custom Skins
-You can supply a skin name, a local `.osk`/`.zip` file path, a skin folder, or a download URL:
+### 2. Custom Resolution & Framerate
+Render in various preset resolutions (`480p`, `720p`, `1080p`, `1440p` / 2K, `4K`) or custom dimensions:
+```bash
+# Render at 1440p (2K) 60 FPS:
+danser-record replay.osr -r 1440p
 
+# Render at 4K:
+danser-record replay.osr -r 4k
+
+# Render at 720p 60 FPS:
+danser-record replay.osr -r 720p --fps 60
+
+# Custom resolution (Width x Height):
+danser-record replay.osr -r 2560x1440
+```
+
+### 3. Rendering with Custom Skins
+Supply a skin name/keyword, a local `.osk`/`.zip` file path, a skin folder, or a download URL:
 ```bash
 # Using a keyword for an installed skin:
-danser-record /path/to/replay.osr -s rafis
-danser-record /path/to/replay.osr -s whitecat
+danser-record replay.osr -s rafis
+danser-record replay.osr -s whitecat
 
 # Using a local .osk file path (Linux / macOS):
-danser-record /path/to/replay.osr -s "/home/user/Downloads/MySkin.osk"
+danser-record replay.osr -s "/home/user/Downloads/MySkin.osk"
 
 # Using a local .osk file path (Windows):
 danser-record replay.osr -s "C:\Users\Name\Downloads\MySkin.osk"
 
 # Using a direct skin download URL:
-danser-record /path/to/replay.osr -s "https://example.com/skins/CustomSkin.osk"
+danser-record replay.osr -s "https://example.com/skins/CustomSkin.osk"
 ```
 
-### Managing Skins
+### 4. Managing Skins
 ```bash
-# List all currently installed skins:
+# List all currently installed skins in Danser:
 danser-record --list-skins
 
 # Permanently import a skin without rendering:
@@ -120,22 +144,31 @@ danser-record --import-skin "/path/to/skin.osk"
 danser-record --sync-skins
 ```
 
+### 5. Verbose Diagnostic Mode
+If you need to view raw `danser-go` stdout and stderr logs instead of the interactive status box:
+```bash
+danser-record replay.osr --verbose
+```
+
 ---
 
 ## Command-Line Options Reference
 
 | Option | Description | Default |
 | :--- | :--- | :--- |
-| `replay` | Path to the target osu! replay file (`.osr`) | *Required for rendering* |
-| `-s, --skin` | Skin keyword, local archive path (`.osk`/`.zip`), folder path, or download URL | Default Skin |
-| `--import-skin` | Import and unpack a skin into Danser without starting a render | None |
-| `-d, --danser-dir` | Custom path to Danser installation directory | Auto-detected |
-| `-o, --output-dir` | Destination directory for exported MP4 videos | `~/Videos/danser_records` |
-| `--exports-dir` | Custom path to osu! lazer `exports/` folder | Auto-detected |
-| `--fps` | Framerate of the output video | `60` |
+| `[replay]` | Path to target osu! replay file (`.osr`). If omitted, auto-picks the newest replay found in Downloads, Documents, Desktop, or osu! exports | *Auto-detected* |
+| `-r, --resolution <res>` | Output resolution: `480p`, `720p`, `1080p`, `1440p` (2k), `4k`, or custom `WxH` (e.g. `1920x1080`) | `1080p` |
+| `--fps <fps>` | Output video framerate (e.g., `30`, `60`, `120`) | `60` |
+| `-s, --skin <skin>` | Skin keyword, local archive (`.osk`/`.zip`), folder path, or download URL | Default Skin |
+| `--import-skin <pathOrUrl>` | Import and unpack a skin into Danser without starting a render | None |
+| `-d, --danser-dir <path>` | Custom path to Danser installation directory | Auto-detected |
+| `-o, --output-dir <path>` | Destination directory for exported MP4 videos | `~/Videos/danser_records` |
+| `--exports-dir <path>` | Custom path to osu! lazer `exports/` folder | Auto-detected |
 | `--list-skins` | Print all installed skins and exit | Disabled |
 | `--sync-skins` | Manually scan and import skins from system folders | Disabled |
+| `--verbose` | Show detailed log stream instead of compact status box | Disabled |
 | `-v, --version` | Display program version | |
+| `-h, --help` | Display CLI help menu | |
 
 ---
 
@@ -153,30 +186,10 @@ npm publish
 
 ---
 
-## Hướng dẫn chi tiết (Tiếng Việt)
+## 2026 Performance Points & Star Rating Engine
 
-### Tổng quan
-Trong **osu! lazer**, toàn bộ dữ liệu bài hát và nhạc nền được mã hóa dạng hash bên trong cơ sở dữ liệu `client.realm`. Do đó, khi xuất file replay `.osr`, người dùng không thể đưa trực tiếp vào Danser-go như bản osu! stable ngày trước.
-
-**Danser AutoFetch** tự động hóa toàn bộ quy trình này:
-1. **Phân tích replay `.osr`**: Trích xuất mã MD5 bài hát, tên người chơi, mods và điểm số.
-2. **Tự động tải nhạc ngầm**: Tìm kiếm và tải file `.osz` gốc từ các mirror server (*Catboy, Sayobot, Chimu*) về Danser trong vài giây.
-3. **Cơ chế nạp Skin linh hoạt**: Nhận diện đường dẫn file `.osk`, thư mục hoặc link tải trực tiếp mà không cần cài đặt thủ công.
-4. **Xuất video chuẩn 1080p 60FPS**: Tự động áp dụng Hitsound của Skin, con trỏ chuột, bỏ qua intro và lưu video vào thư mục `Videos/danser_records`.
-
----
-
-## License & Credits
-
-- Core rendering engine powered by **[danser-go](https://github.com/Wieku/danser-go)** by **Wieku**.
-- Beatmap resolution powered by community mirrors: **Catboy / Mino**, **Sayobot**, and **Chimu**.
-- Licensed under the **[MIT License](LICENSE)**.
-
----
-
-## ⚡ 2026 Performance Points & Star Rating Engine
-
-Danser AutoFetch integrates **`rosu-pp`** (WebAssembly), which implements the latest official **[osu! July 2026 Performance Points & Star Rating Rework](https://osu.ppy.sh/home/news/2026-07-03-performance-points-star-rating-updates)**:
+Danser AutoFetch integrates **`rosu-pp-js`** (WebAssembly), which implements the latest official **[osu! July 2026 Performance Points & Star Rating Rework](https://osu.ppy.sh/home/news/2026-07-03-performance-points-star-rating-updates)**:
 - **Updated Star Rating (SR):** Modern Aim, Speed, and Flashlight strain calculations.
 - **Accurate PP Breakdown:** Full component metrics for Play PP (*Aim, Speed, Accuracy, Flashlight*) and theoretical 100% SS Max PP.
-- **Up-to-Date Algorithms:** Includes modern slider tracking, miss penalties, and length bonus curves.
+- **Direct `.osu` Metadata Extraction:** Reads metadata directly from `.osu` files to enrich titles, mappers, and difficulties even with non-standard replay names.
+- **Up-to-Date Algorithms:** Modern slider tracking, miss penalties, and length bonus curves.
