@@ -6,6 +6,12 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { spawn } from 'child_process';
 import { DanserConfigOptions } from './types';
+import { printStatus, ProgressCallback } from './ui';
+
+export interface RenderResult {
+  exitCode: number;
+  errorDetails?: string[];
+}
 
 export class DanserRenderer {
   public danserDir: string;
@@ -184,11 +190,17 @@ export class DanserRenderer {
 
       fs.writeFileSync(this.settingsFile, JSON.stringify(cfg, null, 4), 'utf-8');
     } catch (e: any) {
-      console.log(`[WARN] Could not update Danser config: ${e.message}`);
+      printStatus('config', `could not update danser config: ${e.message.toLowerCase()}`, 'warning');
     }
   }
 
-  runRecord(replayPath: string, skinName?: string, extraArgs: string[] = []): Promise<number> {
+  runRecord(
+    replayPath: string,
+    skinName?: string,
+    verbose = false,
+    onProgress?: ProgressCallback,
+    extraArgs: string[] = []
+  ): Promise<RenderResult> {
     return new Promise((resolve) => {
       const env = { ...process.env };
       const bundledFfmpeg = path.join(this.danserDir, 'ffmpeg');
@@ -205,7 +217,7 @@ export class DanserRenderer {
         }
       }
 
-      const args = ['-record', '-skip', '-replay', path.resolve(replayPath)];
+      const args = ['-record', '-preciseprogress', '-noupdatecheck', '-skip', '-replay', path.resolve(replayPath)];
       if (skinName) {
         args.push('-skin', skinName);
       }
@@ -213,21 +225,101 @@ export class DanserRenderer {
         args.push(...extraArgs);
       }
 
-      console.log(`\n[EXEC] Launching Danser: ${this.danserBin} ${args.join(' ')}`);
+      if (verbose) {
+        if (onProgress) {
+          onProgress({ processName: 'rendering', percent: 0, log: `launching ${path.basename(this.danserBin).toLowerCase()}...` });
+        } else {
+          printStatus('exec', `launching danser: ${path.basename(this.danserBin).toLowerCase()} ${args.join(' ').toLowerCase()}`);
+        }
+
+        const child = spawn(this.danserBin, args, {
+          cwd: this.danserDir,
+          env,
+          stdio: 'inherit',
+        });
+
+        child.on('close', (code) => {
+          resolve({ exitCode: code ?? 0 });
+        });
+
+        child.on('error', (err) => {
+          printStatus('render', `failed to start danser binary: ${err.message.toLowerCase()}`, 'error');
+          resolve({ exitCode: 1, errorDetails: [err.message] });
+        });
+        return;
+      }
+
+      // Non-verbose: Stream capture with StatusBox progress reporting
+      if (onProgress) {
+        onProgress({ processName: 'rendering', percent: 0, detail: 'starting encoder', log: 'launching danser-cli...' });
+      }
 
       const child = spawn(this.danserBin, args, {
         cwd: this.danserDir,
         env,
-        stdio: 'inherit',
+        stdio: ['ignore', 'pipe', 'pipe'],
       });
 
+      const recentLogs: string[] = [];
+
+      const handleChunk = (chunk: Buffer | string) => {
+        const str = chunk.toString();
+        const lines = str.split(/[\r\n]+/);
+
+        for (const rawLine of lines) {
+          const trimmed = rawLine.trim();
+          if (!trimmed) continue;
+
+          recentLogs.push(trimmed);
+          if (recentLogs.length > 12) recentLogs.shift();
+
+          const progressMatch = trimmed.match(/progress:\s*([\d.]+)%/i);
+          const etaMatch = trimmed.match(/\[?eta:\s*([^\s\]]+)\]?/i);
+          const fpsMatch = trimmed.match(/\[?fps:\s*([\d.]+)\]?/i);
+
+          if (progressMatch) {
+            const percent = parseFloat(progressMatch[1]);
+            const eta = etaMatch ? etaMatch[1] : undefined;
+            const fps = fpsMatch ? fpsMatch[1] : undefined;
+
+            const detailParts: string[] = [];
+            if (fps) detailParts.push(`fps: ${fps}`);
+            if (eta) detailParts.push(`eta: ${eta}`);
+            const detail = detailParts.length > 0 ? detailParts.join(' · ') : undefined;
+
+            onProgress?.({
+              processName: 'rendering',
+              percent,
+              detail,
+              log: `encoding video frames (${percent}%)...`,
+            });
+          } else {
+            // Strip leading date/time stamps
+            const clean = trimmed.replace(/^\d{4}\/\d{2}\/\d{2}\s+\d{2}:\d{2}:\d{2}\s+/, '').trim();
+            if (clean && !clean.toLowerCase().includes('progress:')) {
+              onProgress?.({
+                processName: 'rendering',
+                log: clean.toLowerCase(),
+              });
+            }
+          }
+        }
+      };
+
+      child.stdout?.on('data', handleChunk);
+      child.stderr?.on('data', handleChunk);
+
       child.on('close', (code) => {
-        resolve(code ?? 0);
+        if (code === 0) {
+          onProgress?.({ processName: 'rendering', percent: 100, detail: 'completed', log: 'encoding finished' });
+          resolve({ exitCode: 0 });
+        } else {
+          resolve({ exitCode: code ?? 1, errorDetails: recentLogs });
+        }
       });
 
       child.on('error', (err) => {
-        console.error(`[ERROR] Failed to start Danser binary: ${err.message}`);
-        resolve(1);
+        resolve({ exitCode: 1, errorDetails: [err.message] });
       });
     });
   }
