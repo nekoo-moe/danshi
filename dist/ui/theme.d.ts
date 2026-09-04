@@ -1,0 +1,51 @@
+import chalk from 'chalk';
+export declare const palette: {
+    primary: string;
+    accent: string;
+    cyan: string;
+    green: string;
+    yellow: string;
+    red: string;
+    text: string;
+    muted: string;
+    subtle: string;
+    border: string;
+    borderActive: string;
+};
+export declare const uiText: {
+    brand: chalk.Chalk;
+    title: chalk.Chalk;
+    subtitle: chalk.Chalk;
+    section: chalk.Chalk;
+    label: chalk.Chalk;
+    value: chalk.Chalk;
+    quietValue: chalk.Chalk;
+    muted: chalk.Chalk;
+    subtle: chalk.Chalk;
+    success: chalk.Chalk;
+    warning: chalk.Chalk;
+    danger: chalk.Chalk;
+    border: chalk.Chalk;
+    activeBorder: chalk.Chalk;
+    accent: chalk.Chalk;
+    focus: chalk.Chalk;
+    tag: chalk.Chalk;
+};
+export declare const glyphs: {
+    topLeft: string;
+    topRight: string;
+    bottomLeft: string;
+    bottomRight: string;
+    horizontal: string;
+    vertical: string;
+    teeLeft: string;
+    teeRight: string;
+    cross: string;
+    dot: string;
+    pointer: string;
+    star: string;
+    arrow: string;
+    barFilled: string;
+    barEmpty: string;
+};
+//# sourceMappingURL=theme.d.ts.map
