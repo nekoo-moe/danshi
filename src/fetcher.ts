@@ -7,6 +7,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { BeatmapInfo, FilenameMetadata } from './types';
+import { printStatus, renderProgress, finishProgress, ProgressCallback } from './ui';
+import { PPCalculator } from './calculator';
 
 const USER_AGENT = 'danser-autofetch/1.3.7 (https://github.com/heiznerd/danser-autofetch)';
 
@@ -452,17 +454,33 @@ export class BeatmapFetcher {
     return null;
   }
 
-  async resolveBeatmap(md5: string, filenameHint?: string): Promise<BeatmapInfo | null> {
+  async resolveBeatmap(
+    md5: string,
+    filenameHint?: string,
+    onProgress?: ProgressCallback
+  ): Promise<BeatmapInfo | null> {
     // 1. Try MD5 lookups across all mirrors
+    if (onProgress) {
+      onProgress({ processName: 'fetch', percent: 0, log: 'querying catboy/mino mirror (md5)...' });
+    }
     const catboyInfo = await this.fetchByMd5Catboy(md5);
     if (catboyInfo) return catboyInfo;
 
+    if (onProgress) {
+      onProgress({ processName: 'fetch', percent: 0, log: 'querying osu.direct mirror (md5)...' });
+    }
     const osuDirectInfo = await this.fetchByMd5OsuDirect(md5);
     if (osuDirectInfo) return osuDirectInfo;
 
+    if (onProgress) {
+      onProgress({ processName: 'fetch', percent: 0, log: 'querying sayobot mirror (md5)...' });
+    }
     const sayobotInfo = await this.fetchByMd5Sayobot(md5);
     if (sayobotInfo) return sayobotInfo;
 
+    if (onProgress) {
+      onProgress({ processName: 'fetch', percent: 0, log: 'querying nerinyan mirror (md5)...' });
+    }
     const nerinyanInfo = await this.fetchByMd5Nerinyan(md5);
     if (nerinyanInfo) return nerinyanInfo;
 
@@ -470,14 +488,23 @@ export class BeatmapFetcher {
     if (filenameHint) {
       const meta = this.parseReplayFilename(filenameHint);
       if (meta.beatmapId) {
-        console.log(`[LOOKUP] Detected osu! lazer Beatmap ID #${meta.beatmapId} from replay filename, querying mirrors...`);
+        if (onProgress) {
+          onProgress({ processName: 'fetch', percent: 0, log: `querying lazer beatmap id #${meta.beatmapId}...` });
+        } else {
+          printStatus('lookup', `detected osu! lazer beatmap id #${meta.beatmapId} from filename`);
+        }
         const bidInfo = await this.fetchByBeatmapId(meta.beatmapId);
         if (bidInfo) return bidInfo;
       }
 
       // 3. Fallback: Search mirrors by artist / song title
       if (meta.title && meta.title.length > 2) {
-        console.log(`[SEARCH] Querying mirror servers for: '${meta.artist || ''} - ${meta.title}' (Mapper: ${meta.creator || 'Any'})...`);
+        const queryDesc = `'${(meta.artist || '').toLowerCase()} - ${(meta.title || '').toLowerCase()}'`;
+        if (onProgress) {
+          onProgress({ processName: 'fetch', percent: 0, log: `searching mirrors for ${queryDesc}...` });
+        } else {
+          printStatus('search', `querying mirror servers for: ${queryDesc}`);
+        }
         const searchInfo = await this.searchMirrorWithMetadata(meta);
         if (searchInfo) return searchInfo;
       }
@@ -486,19 +513,32 @@ export class BeatmapFetcher {
     return null;
   }
 
-  async downloadFromMirrors(sid: number | string, targetOsz: string): Promise<boolean> {
+  async downloadFromMirrors(
+    sid: number | string,
+    targetOsz: string,
+    onProgress?: ProgressCallback
+  ): Promise<boolean> {
     const candidates = BeatmapFetcher.getDownloadCandidates(sid);
 
     for (const mirror of candidates) {
       try {
-        console.log(`[DOWNLOAD] Trying mirror: ${mirror.name} (${mirror.url})...`);
+        if (onProgress) {
+          onProgress({ processName: 'mirror', percent: 0, log: `connecting to ${mirror.name.toLowerCase()}...` });
+        } else {
+          printStatus('mirror', `connecting to ${mirror.name.toLowerCase()}...`);
+        }
+
         const resp = await fetch(mirror.url, {
           headers: { 'User-Agent': USER_AGENT },
           signal: AbortSignal.timeout(30000),
         });
 
         if (!resp.ok || !resp.body) {
-          console.warn(`[WARN] Mirror ${mirror.name} returned HTTP ${resp.status}`);
+          if (onProgress) {
+            onProgress({ processName: 'mirror', log: `${mirror.name.toLowerCase()} returned http ${resp.status}` });
+          } else {
+            printStatus('mirror', `${mirror.name.toLowerCase()} returned http ${resp.status}`, 'warning');
+          }
           continue;
         }
 
@@ -515,23 +555,48 @@ export class BeatmapFetcher {
             fileStream.write(Buffer.from(value));
             downloaded += value.length;
             if (totalBytes > 0) {
-              const percent = Math.floor((downloaded * 100) / totalBytes);
-              process.stdout.write(`\r[PROGRESS] Downloading: ${percent}% (${Math.floor(downloaded / 1024)} KB / ${Math.floor(totalBytes / 1024)} KB)`);
+              const percent = (downloaded * 100) / totalBytes;
+              const downMb = (downloaded / (1024 * 1024)).toFixed(1);
+              const totMb = (totalBytes / (1024 * 1024)).toFixed(1);
+              if (onProgress) {
+                onProgress({
+                  processName: 'mirror',
+                  percent,
+                  detail: `${downMb} / ${totMb} mb`,
+                  log: `downloading set #${sid} from ${mirror.name.toLowerCase()}...`,
+                });
+              } else {
+                renderProgress('download', downloaded, totalBytes, 'kb');
+              }
             }
           }
         }
 
         fileStream.end();
+        if (!onProgress) finishProgress();
 
         // Validate downloaded file is larger than 10KB (avoid HTML error pages)
         if (fs.existsSync(targetOsz) && fs.statSync(targetOsz).size > 10240) {
-          console.log(`\n[SUCCESS] Downloaded successfully from ${mirror.name}!`);
+          if (onProgress) {
+            onProgress({
+              processName: 'mirror',
+              percent: 100,
+              detail: 'downloaded',
+              log: `downloaded set #${sid} from ${mirror.name.toLowerCase()}`,
+            });
+          } else {
+            printStatus('mirror', `downloaded set #${sid} from ${mirror.name.toLowerCase()}`, 'success');
+          }
           return true;
         } else {
           if (fs.existsSync(targetOsz)) fs.unlinkSync(targetOsz);
         }
       } catch (err: any) {
-        console.warn(`[WARN] Mirror ${mirror.name} failed: ${err.message}`);
+        if (onProgress) {
+          onProgress({ processName: 'mirror', log: `${mirror.name.toLowerCase()} failed: ${err.message.toLowerCase()}` });
+        } else {
+          printStatus('mirror', `${mirror.name.toLowerCase()} failed: ${err.message.toLowerCase()}`, 'warning');
+        }
         if (fs.existsSync(targetOsz)) fs.unlinkSync(targetOsz);
       }
     }
@@ -539,11 +604,21 @@ export class BeatmapFetcher {
     return false;
   }
 
-  async ensureBeatmap(md5: string, filenameHint?: string): Promise<{ success: boolean; message: string }> {
-    const info = await this.resolveBeatmap(md5, filenameHint);
+  async ensureBeatmap(
+    md5: string,
+    filenameHint?: string,
+    onProgress?: ProgressCallback
+  ): Promise<{ success: boolean; message: string }> {
+    // 0. Quick local cache check before querying mirrors
+    const existingOsu = PPCalculator.findOsuFileInSongs(this.songsDir, md5);
+    if (existingOsu) {
+      return { success: true, message: 'beatmap is already present in songs folder.' };
+    }
+
+    const info = await this.resolveBeatmap(md5, filenameHint, onProgress);
 
     if (!info) {
-      return { success: false, message: `Could not resolve beatmap (MD5: ${md5}) on any mirror.` };
+      return { success: false, message: `could not resolve beatmap (md5: ${md5.toLowerCase()}) on any mirror.` };
     }
 
     const sid = info.beatmapSetId;
@@ -553,16 +628,24 @@ export class BeatmapFetcher {
     const targetExtracted = path.join(this.songsDir, String(sid));
 
     if (fs.existsSync(targetOsz) || fs.existsSync(targetExtracted)) {
-      return { success: true, message: `Beatmap '${artist} - ${title}' (Set #${sid}) is already present.` };
+      return { success: true, message: `beatmap '${artist.toLowerCase()} - ${title.toLowerCase()}' (set #${sid}) is already present.` };
     }
 
-    console.log(`[DOWNLOAD] Fetching beatmap: ${artist} - ${title} (Set #${sid})...`);
+    if (onProgress) {
+      onProgress({
+        processName: 'fetch',
+        percent: 0,
+        log: `fetching beatmap: ${artist.toLowerCase()} - ${title.toLowerCase()} (set #${sid})...`,
+      });
+    } else {
+      printStatus('fetch', `fetching beatmap: ${artist.toLowerCase()} - ${title.toLowerCase()} (set #${sid})...`);
+    }
 
-    const downloaded = await this.downloadFromMirrors(sid, targetOsz);
+    const downloaded = await this.downloadFromMirrors(sid, targetOsz, onProgress);
     if (downloaded) {
-      return { success: true, message: `Downloaded '${artist} - ${title}' (Set #${sid})` };
+      return { success: true, message: `downloaded '${artist.toLowerCase()} - ${title.toLowerCase()}' (set #${sid})` };
     }
 
-    return { success: false, message: `Failed to download beatmap from all mirrors for Set #${sid}.` };
+    return { success: false, message: `failed to download beatmap from all mirrors for set #${sid}.` };
   }
 }
