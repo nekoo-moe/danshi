@@ -8,7 +8,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 
-danshi is a cross-platform CLI automation tool written in **TypeScript / Node.js** that bridges **osu! lazer** and **[danser-go](https://github.com/Wieku/danser-go)**. It automatically discovers exported replay files (`.osr`), resolves and downloads missing beatmaps from high-speed mirror networks, manages custom skins, and renders high-definition gameplay videos with a modern, interactive terminal interface and zero manual effort.
+danshi (fork of danser) is a cross-platform CLI automation tool written in **TypeScript / Node.js** that bridges **osu! lazer** and **[danser-go](https://github.com/Wieku/danser-go)**. It automatically discovers exported replay files (`.osr`), resolves and downloads missing beatmaps from high-speed mirror networks, manages custom skins, and renders high-definition gameplay videos with a modern, interactive terminal interface and zero manual effort.
 
 ---
 
