@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * CLI Entry point for Danser AutoFetch in TypeScript.
+ * CLI Entry point for danshi in TypeScript.
  */
 
 import * as fs from 'fs';
@@ -232,7 +232,7 @@ export async function run(): Promise<void> {
 
   const program = new Command();
   program
-    .name('danser-autofetch')
+    .name('danshi')
     .description('auto-fetch beatmaps and render osu! replay files (.osr) into mp4 videos using danser across windows, linux, and macos.')
     .version(packageJson.version, '-v, --version', 'output program version')
     .argument('[replay]', 'path to the osu! replay file (.osr)')
@@ -262,7 +262,7 @@ export async function run(): Promise<void> {
     const importedName = await skinManager.importSkin(options.importSkin);
     if (importedName) {
       printStatus('skin', `added new skin: '${importedName.toLowerCase()}'`, 'success');
-      printStatus('usage', `danser-record <replay.osr> -s "${importedName.toLowerCase()}"`);
+      printStatus('usage', `danshi <replay.osr> -s "${importedName.toLowerCase()}"`);
     }
     return;
   }

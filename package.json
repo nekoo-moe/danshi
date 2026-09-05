@@ -1,12 +1,13 @@
 {
-  "name": "danser-autofetch",
-  "version": "1.4.1",
+  "name": "danshi",
+  "version": "1.5.0",
   "description": "Automated osu! replay video renderer with multi-mirror beatmap auto-fetcher and smart skin manager for Danser-go.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "danser-autofetch": "./dist/cli.js",
-    "danser-record": "./dist/cli.js"
+    "danshi": "./dist/cli.js",
+    "danser-record": "./dist/cli.js",
+    "danser-autofetch": "./dist/cli.js"
   },
   "scripts": {
     "build": "tsc",
@@ -16,9 +17,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/heiznerd/danser-autofetch.git"
+    "url": "git+https://github.com/nekoo-moe/danshi.git"
   },
   "keywords": [
+    "danshi",
     "osu",
     "osu-lazer",
     "danser",
@@ -32,9 +34,9 @@
   "author": "heiznerd <heiznerd@users.noreply.github.com>",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/heiznerd/danser-autofetch/issues"
+    "url": "https://github.com/nekoo-moe/danshi/issues"
   },
-  "homepage": "https://github.com/heiznerd/danser-autofetch#readme",
+  "homepage": "https://github.com/nekoo-moe/danshi#readme",
   "dependencies": {
     "adm-zip": "^0.5.16",
     "chalk": "^4.1.2",

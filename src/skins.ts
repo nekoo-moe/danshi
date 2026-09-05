@@ -30,7 +30,7 @@ export class SkinManager {
       printStatus('skin', `fetching skin from url: ${rawPath.toLowerCase()}...`);
       const tempOsk = path.join(this.skinsDir, '_temp_import.osk');
       try {
-        const resp = await fetch(rawPath, { headers: { 'User-Agent': 'danser-autofetch' } });
+        const resp = await fetch(rawPath, { headers: { 'User-Agent': 'danshi' } });
         if (!resp.ok) throw new Error(`http error ${resp.status}`);
         const arrayBuffer = await resp.arrayBuffer();
         fs.writeFileSync(tempOsk, Buffer.from(arrayBuffer));

@@ -1,4 +1,4 @@
-﻿name: Release
+name: Release
 
 on:
   push:
@@ -107,11 +107,11 @@ jobs:
           TAG="${{ steps.version_info.outputs.tag }}"
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "Release $TAG already exists on GitHub. Updating release..."
-            gh release edit "$TAG" --title "danser-autofetch $TAG" --notes-file release_notes.md
+            gh release edit "$TAG" --title "danshi $TAG" --notes-file release_notes.md
           else
             echo "Creating new GitHub release for $TAG..."
             gh release create "$TAG" \
-              --title "danser-autofetch $TAG" \
+              --title "danshi $TAG" \
               --notes-file release_notes.md
           fi
         env:

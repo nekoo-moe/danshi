@@ -47,7 +47,7 @@ const path = __importStar(require("path"));
 const promises_1 = require("stream/promises");
 const adm_zip_1 = __importDefault(require("adm-zip"));
 const ui_1 = require("./ui");
-const USER_AGENT = 'danser-autofetch/1.4.1 (https://github.com/heiznerd/danser-autofetch)';
+const USER_AGENT = 'danshi/1.5.0 (https://github.com/nekoo-moe/danshi)';
 const GITHUB_API_URL = 'https://api.github.com/repos/Wieku/danser-go/releases/latest';
 class DanserInstaller {
     static getPlatformKeyword() {

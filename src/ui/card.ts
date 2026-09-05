@@ -47,7 +47,7 @@ export function renderMeta(label: string, value?: string | number | null, labelW
 
 export function printBanner(version: string, subtitle?: string): void {
   const width = terminalWidth(92, 58);
-  const brand = `${uiText.brand('danser autofetch')} ${uiText.subtle(`v${version.toLowerCase()}`)}`;
+  const brand = `${uiText.brand('danshi')} ${uiText.subtle(`v${version.toLowerCase()}`)}`;
   const title = uiText.title('replay renderer');
   const sub = subtitle
     ? uiText.subtitle(subtitle.toLowerCase())

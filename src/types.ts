@@ -1,5 +1,5 @@
 /**
- * Type definitions for Danser AutoFetch.
+ * Type definitions for danshi.
  */
 
 export interface ReplayMetadata {

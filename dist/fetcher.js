@@ -44,7 +44,7 @@ const path = __importStar(require("path"));
 const promises_1 = require("stream/promises");
 const ui_1 = require("./ui");
 const calculator_1 = require("./calculator");
-const USER_AGENT = 'danser-autofetch/1.4.1 (https://github.com/heiznerd/danser-autofetch)';
+const USER_AGENT = 'danshi/1.5.0 (https://github.com/nekoo-moe/danshi)';
 class BeatmapFetcher {
     songsDir;
     constructor(songsDir) {

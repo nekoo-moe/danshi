@@ -71,7 +71,7 @@ function renderMeta(label, value, labelWidth = 12) {
 }
 function printBanner(version, subtitle) {
     const width = (0, text_1.terminalWidth)(92, 58);
-    const brand = `${theme_1.uiText.brand('danser autofetch')} ${theme_1.uiText.subtle(`v${version.toLowerCase()}`)}`;
+    const brand = `${theme_1.uiText.brand('danshi')} ${theme_1.uiText.subtle(`v${version.toLowerCase()}`)}`;
     const title = theme_1.uiText.title('replay renderer');
     const sub = subtitle
         ? theme_1.uiText.subtitle(subtitle.toLowerCase())

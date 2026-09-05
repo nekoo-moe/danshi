@@ -11,7 +11,7 @@ import { BeatmapInfo, FilenameMetadata } from './types';
 import { printStatus, renderProgress, finishProgress, ProgressCallback } from './ui';
 import { PPCalculator } from './calculator';
 
-const USER_AGENT = 'danser-autofetch/1.4.1 (https://github.com/heiznerd/danser-autofetch)';
+const USER_AGENT = 'danshi/1.5.0 (https://github.com/nekoo-moe/danshi)';
 
 export class BeatmapFetcher {
   private songsDir: string;

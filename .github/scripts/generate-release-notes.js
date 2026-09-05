@@ -1,4 +1,4 @@
-﻿const fs = require('fs');
+const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 
@@ -11,7 +11,7 @@ function getRepo() {
     const match = remote.match(/github\.com[/:]([^/.]+\/[^/.]+)/);
     if (match) return match[1].replace(/\.git$/, '');
   } catch {}
-  return 'nekoo-moe/danser-autofetch';
+  return 'nekoo-moe/danshi';
 }
 
 function getFeatures() {

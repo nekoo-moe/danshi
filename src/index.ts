@@ -1,5 +1,5 @@
 /**
- * Danser AutoFetch - Public Module Exports
+ * danshi - Public Module Exports
  */
 
 export * from './types';

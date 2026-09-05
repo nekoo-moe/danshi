@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * CLI Entry point for Danser AutoFetch in TypeScript.
+ * CLI Entry point for danshi in TypeScript.
  */
 import { SystemPaths } from './types';
 export declare function parseResolution(input?: string): [number, number];

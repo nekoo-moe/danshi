@@ -1,6 +1,6 @@
-# Danser AutoFetch
+# danshi
 
-[![NPM Version](https://img.shields.io/npm/v/danser-autofetch.svg?style=flat&color=CB3837)](https://www.npmjs.com/package/danser-autofetch)
+[![NPM Version](https://img.shields.io/npm/v/danshi.svg?style=flat&color=CB3837)](https://www.npmjs.com/package/danshi)
 [![Node.js Version](https://img.shields.io/badge/Node.js-18%2B-339933.svg)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0%2B-3178C6.svg)](https://www.typescriptlang.org)
 [![Danser-go](https://img.shields.io/badge/Danser--go-v0.11%2B-brightgreen.svg)](https://github.com/Wieku/danser-go)
@@ -8,7 +8,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 
-Danser AutoFetch is a cross-platform CLI automation tool written in **TypeScript / Node.js** that bridges **osu! lazer** and **[danser-go](https://github.com/Wieku/danser-go)**. It automatically discovers exported replay files (`.osr`), resolves and downloads missing beatmaps from high-speed mirror networks, manages custom skins, and renders high-definition gameplay videos with a modern, interactive terminal interface and zero manual effort.
+danshi is a cross-platform CLI automation tool written in **TypeScript / Node.js** that bridges **osu! lazer** and **[danser-go](https://github.com/Wieku/danser-go)**. It automatically discovers exported replay files (`.osr`), resolves and downloads missing beatmaps from high-speed mirror networks, manages custom skins, and renders high-definition gameplay videos with a modern, interactive terminal interface and zero manual effort.
 
 ---
 
@@ -22,7 +22,7 @@ Danser AutoFetch is a cross-platform CLI automation tool written in **TypeScript
 
 In **osu! lazer**, beatmaps, audio files, and background images are stored as fragmented, content-addressed hash blobs managed inside a Realm database (`client.realm`) rather than human-readable folders. Because Danser-go was originally architected for osu! stable's traditional folder hierarchy, rendering a replay exported from osu! lazer previously required manually downloading `.osz` files or extracting beatmap archives.
 
-Danser AutoFetch automates this entire pipeline:
+danshi automates this entire pipeline:
 1. **Auto-Discovery & Binary Stream Parsing:** Automatically scans your Downloads, Documents, Desktop, and osu! exports directory for the latest `.osr` replay if no file is provided. Uses Buffer & ULEB128 stream decoding to extract the beatmap MD5 checksum, player name, score, accuracy, judgements, and active mods.
 2. **Local Cache Fast-Path & Multi-Mirror Fetcher:** Immediately checks your local Danser `Songs` folder by MD5 before hitting the network. If missing, it queries community mirror networks (*Sayobot, Nerinyan, Mino / Catboy, Beatconnect, Chimu, osu.direct*) with automatic fallback to difficulty/creator matching.
 3. **Integrated 2026 Performance Points Engine:** Calculates Star Rating and modern Performance Points (Aim, Speed, Accuracy, 100% SS Max PP) using `rosu-pp-js` (July 2026 rework) before rendering begins.
@@ -35,7 +35,7 @@ Danser AutoFetch automates this entire pipeline:
 
 - **Interactive Modern Terminal UX:** Clean, minimalist ASCII cards and live interactive status box with progress bar, ETA, and FPS indicators.
 - **Zero-Setup First Boot:** If `danser-go` is not found on your system, it automatically downloads and configures the latest release directly from GitHub.
-- **Smart Replay Auto-Discovery:** Run `danser-record` without arguments to automatically detect and render your most recently exported replay.
+- **Smart Replay Auto-Discovery:** Run `danshi` (or alias `danser-record`) without arguments to automatically detect and render your most recently exported replay.
 - **Fast-Path Local Cache Check:** Verifies if the beatmap is already present locally via MD5 hash before making any network requests.
 - **Multi-Resolution Video Output:** Flexible `-r, --resolution` flag supporting `480p`, `720p`, `1080p`, `1440p` (2K), `4K`, or custom dimensions (e.g. `1920x1080`).
 - **July 2026 PP Breakdown:** Instantly previews Star Rating (Aim/Speed) and live PP (Aim, Speed, Acc, 100% SS) on the terminal replay card.
@@ -59,7 +59,7 @@ Danser AutoFetch automates this entire pipeline:
 ## Installation
 
 ### 1. Automated First-Boot (Recommended)
-You do **not** need to manually install Danser-go! When you run `danser-autofetch` for the first time, it automatically detects your OS and architecture, downloads the latest release from GitHub, unpacks it, and configures default settings.
+You do **not** need to manually install Danser-go! When you run `danshi` for the first time, it automatically detects your OS and architecture, downloads the latest release from GitHub, unpacks it, and configures default settings.
 
 If you prefer to use an existing Danser-go installation, place it in standard locations or specify `-d, --danser-dir`:
 - **Linux:** `~/Applications/danser` or `~/.danser`
@@ -68,18 +68,18 @@ If you prefer to use an existing Danser-go installation, place it in standard lo
 
 ### 2. Install via NPM
 ```bash
-npm install -g danser-autofetch
+npm install -g danshi
 ```
 
 Or run directly without installing using **NPX**:
 ```bash
-npx danser-autofetch
+npx danshi
 ```
 
 ### 3. Build from Source
 ```bash
-git clone https://github.com/heiznerd/danser-autofetch.git
-cd danser-autofetch
+git clone https://github.com/nekoo-moe/danshi.git
+cd danshi
 npm install
 npm run build
 npm link
@@ -89,65 +89,67 @@ npm link
 
 ## Usage Guide
 
+> **Note on Command Aliases**: Both `danshi` and `danser-record` are available as executable commands.
+
 ### 1. Basic Rendering
 Pass the path to any exported `.osr` replay file, or omit it to automatically detect the newest replay from your system:
 ```bash
 # Auto-pick the newest replay from Downloads, Documents, Desktop, or osu! exports:
-danser-record
+danshi
 
 # Or specify a specific replay file:
-danser-record /path/to/replay.osr
+danshi /path/to/replay.osr
 ```
 
 ### 2. Custom Resolution & Framerate
 Render in various preset resolutions (`480p`, `720p`, `1080p`, `1440p` / 2K, `4K`) or custom dimensions:
 ```bash
 # Render at 1440p (2K) 60 FPS:
-danser-record replay.osr -r 1440p
+danshi replay.osr -r 1440p
 
 # Render at 4K:
-danser-record replay.osr -r 4k
+danshi replay.osr -r 4k
 
 # Render at 720p 60 FPS:
-danser-record replay.osr -r 720p --fps 60
+danshi replay.osr -r 720p --fps 60
 
 # Custom resolution (Width x Height):
-danser-record replay.osr -r 2560x1440
+danshi replay.osr -r 2560x1440
 ```
 
 ### 3. Rendering with Custom Skins
 Supply a skin name/keyword, a local `.osk`/`.zip` file path, a skin folder, or a download URL:
 ```bash
 # Using a keyword for an installed skin:
-danser-record replay.osr -s rafis
-danser-record replay.osr -s whitecat
+danshi replay.osr -s rafis
+danshi replay.osr -s whitecat
 
 # Using a local .osk file path (Linux / macOS):
-danser-record replay.osr -s "/home/user/Downloads/MySkin.osk"
+danshi replay.osr -s "/home/user/Downloads/MySkin.osk"
 
 # Using a local .osk file path (Windows):
-danser-record replay.osr -s "C:\Users\Name\Downloads\MySkin.osk"
+danshi replay.osr -s "C:\Users\Name\Downloads\MySkin.osk"
 
 # Using a direct skin download URL:
-danser-record replay.osr -s "https://example.com/skins/CustomSkin.osk"
+danshi replay.osr -s "https://example.com/skins/CustomSkin.osk"
 ```
 
 ### 4. Managing Skins
 ```bash
 # List all currently installed skins in Danser:
-danser-record --list-skins
+danshi --list-skins
 
 # Permanently import a skin without rendering:
-danser-record --import-skin "/path/to/skin.osk"
+danshi --import-skin "/path/to/skin.osk"
 
 # Manually synchronize skins from osu! exports and Downloads folders:
-danser-record --sync-skins
+danshi --sync-skins
 ```
 
 ### 5. Verbose Diagnostic Mode
 If you need to view raw `danser-go` stdout and stderr logs instead of the interactive status box:
 ```bash
-danser-record replay.osr --verbose
+danshi replay.osr --verbose
 ```
 
 ---
@@ -188,7 +190,7 @@ npm publish
 
 ## 2026 Performance Points & Star Rating Engine
 
-Danser AutoFetch integrates **`rosu-pp-js`** (WebAssembly), which implements the latest official **[osu! July 2026 Performance Points & Star Rating Rework](https://osu.ppy.sh/home/news/2026-07-03-performance-points-star-rating-updates)**:
+danshi integrates **`rosu-pp-js`** (WebAssembly), which implements the latest official **[osu! July 2026 Performance Points & Star Rating Rework](https://osu.ppy.sh/home/news/2026-07-03-performance-points-star-rating-updates)**:
 - **Updated Star Rating (SR):** Modern Aim, Speed, and Flashlight strain calculations.
 - **Accurate PP Breakdown:** Full component metrics for Play PP (*Aim, Speed, Accuracy, Flashlight*) and theoretical 100% SS Max PP.
 - **Direct `.osu` Metadata Extraction:** Reads metadata directly from `.osu` files to enrich titles, mappers, and difficulties even with non-standard replay names.
