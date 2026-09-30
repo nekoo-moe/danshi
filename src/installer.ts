@@ -10,7 +10,7 @@ import { finished } from 'stream/promises';
 import AdmZip from 'adm-zip';
 import { printStatus, renderProgress, finishProgress, ProgressCallback } from './ui';
 
-const USER_AGENT = 'danshi/1.6.0 (https://github.com/nekoo-moe/danshi)';
+const USER_AGENT = 'danshi/1.6.1 (https://github.com/nekoo-moe/danshi)';
 const GITHUB_API_URL = 'https://api.github.com/repos/Wieku/danser-go/releases/latest';
 
 export interface DanserReleaseAsset {
