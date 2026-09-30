@@ -134,6 +134,9 @@ export class DanserRenderer {
 
       // Skin
       cfg.Skin = cfg.Skin || {};
+      if (options.currentSkin) {
+        cfg.Skin.CurrentSkin = options.currentSkin;
+      }
       cfg.Skin.UseColorsFromSkin = useSkinColors;
       cfg.Skin.UseBeatmapColors = !useSkinColors;
       cfg.Skin.Cursor = cfg.Skin.Cursor || {};

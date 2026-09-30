@@ -44,7 +44,7 @@ const path = __importStar(require("path"));
 const promises_1 = require("stream/promises");
 const ui_1 = require("./ui");
 const calculator_1 = require("./calculator");
-const USER_AGENT = 'danshi/1.6.1 (https://github.com/nekoo-moe/danshi)';
+const USER_AGENT = 'danshi/1.6.2 (https://github.com/nekoo-moe/danshi)';
 class BeatmapFetcher {
     songsDir;
     constructor(songsDir) {

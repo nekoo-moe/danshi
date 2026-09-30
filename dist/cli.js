@@ -38,6 +38,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.parseResolution = parseResolution;
+exports.normalizeArgv = normalizeArgv;
 exports.resolveReplayPath = resolveReplayPath;
 exports.getDefaultPaths = getDefaultPaths;
 exports.run = run;
@@ -87,6 +88,17 @@ function parseResolution(input) {
     }
     console.warn(`[WARN] Unknown resolution preset '${input}', defaulting to 1080p (1920x1080).`);
     return [1920, 1080];
+}
+function normalizeArgv(argv) {
+    return argv.map((arg, idx) => {
+        if (idx < 2)
+            return arg;
+        // Normalize single-dash multi-character flags (e.g. -skin, -diff, -autoplay, -fps, -resolution) to double-dash flags
+        if (/^-[a-zA-Z][a-zA-Z0-9_-]+/.test(arg) && !arg.startsWith('--')) {
+            return '-' + arg;
+        }
+        return arg;
+    });
 }
 function resolveReplayPath(arg, osuExportsDir, danserDir) {
     const home = process.env.HOME || process.env.USERPROFILE || '';
@@ -262,7 +274,7 @@ async function run() {
         .option('--sync-skins', 'manually sync skins from osu! exports and downloads folders')
         .option('--verbose', 'show detailed log output instead of compact status')
         .allowUnknownOption(true);
-    program.parse(process.argv);
+    program.parse(normalizeArgv(process.argv));
     const options = program.opts();
     const replayArg = program.args[0];
     displayBanner();
@@ -299,6 +311,13 @@ async function run() {
         const skins = skinManager.listSkins();
         (0, ui_1.printSkinsList)(skins);
         return;
+    }
+    // 4. resolve skin on demand (supports name, .osk/.zip path, folder, or url)
+    const skinManager = new skins_1.SkinManager(path.join(targetDanserDir, 'Skins'), options.exportsDir);
+    let selectedSkin;
+    if (options.skin) {
+        const matched = await skinManager.matchSkin(options.skin);
+        selectedSkin = matched || options.skin;
     }
     let replayPath = null;
     let replayInfo = {};
@@ -362,7 +381,7 @@ async function run() {
             diff: options.diff,
             beatmapId: meta.beatmapId,
             beatmapMd5: replayInfo?.beatmapMd5,
-            skin: options.skin,
+            skin: selectedSkin || options.skin,
             resolution: parseResolution(options.resolution),
             fps: options.fps,
             ppResult,
@@ -448,6 +467,7 @@ async function run() {
     const renderer = new renderer_1.DanserRenderer(danserDir, options.outputDir);
     const resolution = parseResolution(options.resolution);
     renderer.configureSettings({
+        currentSkin: selectedSkin,
         useSkinCursor: true,
         useSkinHitsounds: true,
         useSkinColors: true,
@@ -497,12 +517,6 @@ async function run() {
         if (!success) {
             statusBox.update({ processName: 'fetch', log: message.toLowerCase() });
         }
-    }
-    const skinManager = new skins_1.SkinManager(path.join(renderer.danserDir, 'Skins'), options.exportsDir);
-    let selectedSkin;
-    if (options.skin) {
-        const matched = await skinManager.matchSkin(options.skin);
-        selectedSkin = matched || options.skin;
     }
     statusBox.update({
         processName: 'rendering',

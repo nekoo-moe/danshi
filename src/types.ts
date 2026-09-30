@@ -42,6 +42,7 @@ export interface FilenameMetadata {
 }
 
 export interface DanserConfigOptions {
+  currentSkin?: string;
   useSkinCursor?: boolean;
   useSkinHitsounds?: boolean;
   useSkinColors?: boolean;

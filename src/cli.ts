@@ -66,6 +66,17 @@ export function parseResolution(input?: string): [number, number] {
   return [1920, 1080];
 }
 
+export function normalizeArgv(argv: string[]): string[] {
+  return argv.map((arg, idx) => {
+    if (idx < 2) return arg;
+    // Normalize single-dash multi-character flags (e.g. -skin, -diff, -autoplay, -fps, -resolution) to double-dash flags
+    if (/^-[a-zA-Z][a-zA-Z0-9_-]+/.test(arg) && !arg.startsWith('--')) {
+      return '-' + arg;
+    }
+    return arg;
+  });
+}
+
 export function resolveReplayPath(arg?: string, osuExportsDir?: string, danserDir?: string): string | null {
   const home = process.env.HOME || process.env.USERPROFILE || '';
   const candidateDirs: string[] = [];
@@ -251,7 +262,7 @@ export async function run(): Promise<void> {
     .option('--verbose', 'show detailed log output instead of compact status')
     .allowUnknownOption(true);
 
-  program.parse(process.argv);
+  program.parse(normalizeArgv(process.argv));
   const options = program.opts();
   const replayArg = program.args[0];
 
@@ -294,6 +305,14 @@ export async function run(): Promise<void> {
     const skins = skinManager.listSkins();
     printSkinsList(skins);
     return;
+  }
+
+  // 4. resolve skin on demand (supports name, .osk/.zip path, folder, or url)
+  const skinManager = new SkinManager(path.join(targetDanserDir, 'Skins'), options.exportsDir);
+  let selectedSkin: string | undefined;
+  if (options.skin) {
+    const matched = await skinManager.matchSkin(options.skin);
+    selectedSkin = matched || options.skin;
   }
 
   let replayPath: string | null = null;
@@ -359,7 +378,7 @@ export async function run(): Promise<void> {
       diff: options.diff,
       beatmapId: meta.beatmapId,
       beatmapMd5: replayInfo?.beatmapMd5,
-      skin: options.skin,
+      skin: selectedSkin || options.skin,
       resolution: parseResolution(options.resolution),
       fps: options.fps,
       ppResult,
@@ -441,6 +460,7 @@ export async function run(): Promise<void> {
   const resolution = parseResolution(options.resolution);
 
   renderer.configureSettings({
+    currentSkin: selectedSkin,
     useSkinCursor: true,
     useSkinHitsounds: true,
     useSkinColors: true,
@@ -489,13 +509,6 @@ export async function run(): Promise<void> {
     if (!success) {
       statusBox.update({ processName: 'fetch', log: message.toLowerCase() });
     }
-  }
-
-  const skinManager = new SkinManager(path.join(renderer.danserDir, 'Skins'), options.exportsDir);
-  let selectedSkin: string | undefined;
-  if (options.skin) {
-    const matched = await skinManager.matchSkin(options.skin);
-    selectedSkin = matched || options.skin;
   }
 
   statusBox.update({
