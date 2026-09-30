@@ -248,10 +248,12 @@ async function run() {
         .name('danshi')
         .description('auto-fetch beatmaps and render osu! replay files (.osr) into mp4 videos using danser across windows, linux, and macos.')
         .version(packageJson.version, '-v, --version', 'output program version')
-        .argument('[replay]', 'path to the osu! replay file (.osr)')
+        .argument('[replay]', 'path to the osu! replay file (.osr), beatmap (.osz/.osu), beatmap id, or song title query')
         .option('-s, --skin <skin>', 'skin name, local file path (.osk/.zip), folder path, or direct download url')
         .option('-r, --resolution <resolution>', 'output video resolution: 480p, 720p, 1080p, 1440p (2k), 4k, or custom wxh (e.g. 1920x1080)', '1080p')
         .option('--fps <fps>', 'output video framerate (e.g. 30, 60, 120)', (val) => parseInt(val, 10), 60)
+        .option('--autoplay', 'render beatmap with danser autoplay / cursordance mode instead of a replay')
+        .option('--diff <diff>', 'target difficulty name of the beatmap (required when using --autoplay)')
         .option('--import-skin <pathOrUrl>', 'import a new skin from a local path (.osk/.zip/folder) or download url')
         .option('-d, --danser-dir <path>', 'path to danser directory', defaults.danserDir)
         .option('-o, --output-dir <path>', 'directory to store output mp4 videos', defaults.outputDir)
@@ -264,6 +266,15 @@ async function run() {
     const options = program.opts();
     const replayArg = program.args[0];
     displayBanner();
+    // Validate --diff required when --autoplay is used
+    if (options.autoplay && !options.diff) {
+        (0, ui_1.printErrorCard)('missing argument', "option '--diff <diff>' is required when using '--autoplay'", [
+            'please specify the difficulty name for autoplay mode.',
+            'usage example: danshi "Brain Power" --autoplay --diff "Overdrive"',
+            'usage example: danshi replay.osr --autoplay --diff "Insane"',
+        ]);
+        process.exit(1);
+    }
     const targetDanserDir = options.danserDir || defaults.danserDir;
     // 1. explicit skin import
     if (options.importSkin) {
@@ -289,41 +300,51 @@ async function run() {
         (0, ui_1.printSkinsList)(skins);
         return;
     }
-    // 4. resolve replay path
     let replayPath = null;
-    if (replayArg) {
-        replayPath = resolveReplayPath(replayArg, options.exportsDir, targetDanserDir);
-        if (!replayPath) {
-            (0, ui_1.printErrorCard)('replay not found', `replay file not found: '${replayArg.toLowerCase()}'`, [
-                'searched in: current directory, downloads, documents, desktop, and osu! exports folder.',
-            ]);
-            process.exit(1);
-        }
-    }
-    else {
-        // if no replay argument was provided, try picking the newest replay automatically
-        replayPath = resolveReplayPath(undefined, options.exportsDir, targetDanserDir);
-        if (!replayPath) {
-            program.help();
-            process.exit(1);
-        }
-    }
-    // 5. parse replay header and compute preview PP if beatmap is already present
     let replayInfo = {};
-    try {
-        replayInfo = (0, parser_1.parseReplay)(replayPath);
-    }
-    catch {
-        replayInfo = {};
-    }
-    const initialSongsDir = path.join(targetDanserDir, 'Songs');
-    const fetcher = new fetcher_1.BeatmapFetcher(initialSongsDir);
-    const meta = fetcher.parseReplayFilename(replayPath);
+    let meta = {};
     let ppResult = null;
-    if (replayInfo.beatmapMd5) {
-        const osuFile = calculator_1.PPCalculator.findOsuFileInSongs(initialSongsDir, replayInfo.beatmapMd5, meta.diff);
-        if (osuFile) {
-            const osuMeta = calculator_1.PPCalculator.extractOsuMeta(osuFile);
+    const initialSongsDir = path.join(targetDanserDir, 'Songs');
+    const initialFetcher = new fetcher_1.BeatmapFetcher(initialSongsDir);
+    if (options.autoplay) {
+        // Autoplay mode
+        if (replayArg) {
+            replayPath = resolveReplayPath(replayArg, options.exportsDir, targetDanserDir);
+            if (replayPath) {
+                try {
+                    replayInfo = (0, parser_1.parseReplay)(replayPath);
+                }
+                catch {
+                    replayInfo = {};
+                }
+                meta = initialFetcher.parseReplayFilename(replayPath);
+            }
+            else {
+                meta = initialFetcher.parseReplayFilename(replayArg);
+                const num = parseInt(replayArg.trim(), 10);
+                if (!isNaN(num) && String(num) === replayArg.trim()) {
+                    meta.beatmapId = num;
+                }
+            }
+        }
+        else {
+            // Pick newest replay if available to extract beatmap
+            replayPath = resolveReplayPath(undefined, options.exportsDir, targetDanserDir);
+            if (replayPath) {
+                try {
+                    replayInfo = (0, parser_1.parseReplay)(replayPath);
+                }
+                catch {
+                    replayInfo = {};
+                }
+                meta = initialFetcher.parseReplayFilename(replayPath);
+            }
+        }
+        meta.diff = options.diff;
+        // Fast-path local cache check for preview metrics
+        const localOsu = calculator_1.PPCalculator.findOsuFileInSongs(initialSongsDir, replayInfo?.beatmapMd5, options.diff, meta.title);
+        if (localOsu) {
+            const osuMeta = calculator_1.PPCalculator.extractOsuMeta(localOsu);
             if (osuMeta.beatmapId)
                 meta.beatmapId = osuMeta.beatmapId;
             if (osuMeta.title)
@@ -332,30 +353,86 @@ async function run() {
                 meta.artist = osuMeta.artist;
             if (osuMeta.diff)
                 meta.diff = osuMeta.diff;
-            ppResult = calculator_1.PPCalculator.calculate(osuFile, replayInfo);
+            ppResult = calculator_1.PPCalculator.calculateBeatmap(localOsu);
         }
-        // If artist or title is still missing, query mirror networks to resolve full beatmap metadata
-        if ((!meta.artist || !meta.title || !meta.diff) && replayInfo.beatmapMd5) {
-            try {
-                const resolved = await fetcher.resolveBeatmap(replayInfo.beatmapMd5, replayPath);
-                if (resolved) {
-                    if (resolved.artist)
-                        meta.artist = resolved.artist;
-                    if (resolved.title)
-                        meta.title = resolved.title;
-                    if (resolved.version || resolved.diff)
-                        meta.diff = resolved.version || resolved.diff;
-                    if (resolved.beatmapId)
-                        meta.beatmapId = resolved.beatmapId;
+        (0, ui_1.printAutoplayCard)({
+            title: meta.title,
+            artist: meta.artist,
+            creator: meta.creator,
+            diff: options.diff,
+            beatmapId: meta.beatmapId,
+            beatmapMd5: replayInfo?.beatmapMd5,
+            skin: options.skin,
+            resolution: parseResolution(options.resolution),
+            fps: options.fps,
+            ppResult,
+        });
+    }
+    else {
+        // Standard Replay mode
+        if (replayArg) {
+            replayPath = resolveReplayPath(replayArg, options.exportsDir, targetDanserDir);
+            if (!replayPath) {
+                (0, ui_1.printErrorCard)('replay not found', `replay file not found: '${replayArg.toLowerCase()}'`, [
+                    'searched in: current directory, downloads, documents, desktop, and osu! exports folder.',
+                ]);
+                process.exit(1);
+            }
+        }
+        else {
+            replayPath = resolveReplayPath(undefined, options.exportsDir, targetDanserDir);
+            if (!replayPath) {
+                program.help();
+                process.exit(1);
+            }
+        }
+        try {
+            replayInfo = (0, parser_1.parseReplay)(replayPath);
+        }
+        catch {
+            replayInfo = {};
+        }
+        meta = initialFetcher.parseReplayFilename(replayPath);
+        if (options.diff) {
+            meta.diff = options.diff;
+        }
+        if (replayInfo.beatmapMd5) {
+            const osuFile = calculator_1.PPCalculator.findOsuFileInSongs(initialSongsDir, replayInfo.beatmapMd5, meta.diff);
+            if (osuFile) {
+                const osuMeta = calculator_1.PPCalculator.extractOsuMeta(osuFile);
+                if (osuMeta.beatmapId)
+                    meta.beatmapId = osuMeta.beatmapId;
+                if (osuMeta.title)
+                    meta.title = osuMeta.title;
+                if (osuMeta.artist)
+                    meta.artist = osuMeta.artist;
+                if (osuMeta.diff)
+                    meta.diff = osuMeta.diff;
+                ppResult = calculator_1.PPCalculator.calculate(osuFile, replayInfo);
+            }
+            // If artist or title is still missing, query mirror networks to resolve full beatmap metadata
+            if ((!meta.artist || !meta.title || !meta.diff) && replayInfo.beatmapMd5) {
+                try {
+                    const resolved = await initialFetcher.resolveBeatmap(replayInfo.beatmapMd5, replayPath);
+                    if (resolved) {
+                        if (resolved.artist)
+                            meta.artist = resolved.artist;
+                        if (resolved.title)
+                            meta.title = resolved.title;
+                        if (resolved.version || resolved.diff)
+                            meta.diff = resolved.version || resolved.diff;
+                        if (resolved.beatmapId)
+                            meta.beatmapId = resolved.beatmapId;
+                    }
+                }
+                catch {
+                    // Fallback silently if offline or lookup fails
                 }
             }
-            catch {
-                // Fallback silently if offline or lookup fails
-            }
         }
+        // render unified replay card immediately below banner with zero empty lines
+        (0, ui_1.printReplayCard)(replayPath, replayInfo, meta, ppResult);
     }
-    // render unified replay card immediately below banner with zero empty lines
-    (0, ui_1.printReplayCard)(replayPath, replayInfo, meta, ppResult);
     // 6. start dynamic status box
     const statusBox = new ui_1.StatusBox(Boolean(options.verbose));
     statusBox.start('setup', 'initializing danser environment...');
@@ -379,8 +456,43 @@ async function run() {
         resolution,
     });
     const songsDir = path.join(renderer.danserDir, 'Songs');
-    if (replayInfo.beatmapMd5) {
-        const fetcher = new fetcher_1.BeatmapFetcher(songsDir);
+    const fetcher = new fetcher_1.BeatmapFetcher(songsDir);
+    if (options.autoplay) {
+        if (replayInfo?.beatmapMd5) {
+            const { success, message } = await fetcher.ensureBeatmap(replayInfo.beatmapMd5, replayPath || undefined, (p) => statusBox.update(p));
+            if (!success) {
+                statusBox.update({ processName: 'fetch', log: message.toLowerCase() });
+            }
+        }
+        else if (replayArg) {
+            const { success, message, info } = await fetcher.ensureBeatmapByQuery(replayArg, options.diff, (p) => statusBox.update(p));
+            if (!success) {
+                statusBox.update({ processName: 'fetch', log: message.toLowerCase() });
+            }
+            else if (info) {
+                if (info.title && !meta.title)
+                    meta.title = info.title;
+                if (info.artist && !meta.artist)
+                    meta.artist = info.artist;
+                if (info.beatmapId && !meta.beatmapId)
+                    meta.beatmapId = info.beatmapId;
+            }
+        }
+        // Check if target diff is present in songs
+        const resolvedOsu = calculator_1.PPCalculator.findOsuFileInSongs(songsDir, replayInfo?.beatmapMd5, options.diff, meta.title);
+        if (resolvedOsu) {
+            const osuMeta = calculator_1.PPCalculator.extractOsuMeta(resolvedOsu);
+            if (osuMeta.beatmapId)
+                meta.beatmapId = osuMeta.beatmapId;
+            if (osuMeta.title)
+                meta.title = osuMeta.title;
+            if (osuMeta.artist)
+                meta.artist = osuMeta.artist;
+            if (osuMeta.creator)
+                meta.creator = osuMeta.creator;
+        }
+    }
+    else if (replayInfo.beatmapMd5) {
         const { success, message } = await fetcher.ensureBeatmap(replayInfo.beatmapMd5, replayPath, (p) => statusBox.update(p));
         if (!success) {
             statusBox.update({ processName: 'fetch', log: message.toLowerCase() });
@@ -399,7 +511,15 @@ async function run() {
         log: 'launching danser-cli...',
     });
     const startTime = Date.now();
-    const renderResult = await renderer.runRecord(replayPath, selectedSkin, options.verbose, (p) => statusBox.update(p), program.args.slice(1));
+    const renderResult = await renderer.runRecord(replayPath, selectedSkin, options.verbose, (p) => statusBox.update(p), program.args.slice(1), {
+        autoplay: Boolean(options.autoplay),
+        diff: options.diff,
+        title: meta.title,
+        artist: meta.artist,
+        creator: meta.creator,
+        beatmapId: meta.beatmapId,
+        beatmapMd5: replayInfo?.beatmapMd5,
+    });
     const exitCode = renderResult.exitCode;
     statusBox.finish();
     // detect generated video across renderer.outputDir and danser's internal videos directory

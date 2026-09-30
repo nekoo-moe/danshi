@@ -44,7 +44,7 @@ const path = __importStar(require("path"));
 const promises_1 = require("stream/promises");
 const ui_1 = require("./ui");
 const calculator_1 = require("./calculator");
-const USER_AGENT = 'danshi/1.5.0 (https://github.com/nekoo-moe/danshi)';
+const USER_AGENT = 'danshi/1.6.0 (https://github.com/nekoo-moe/danshi)';
 class BeatmapFetcher {
     songsDir;
     constructor(songsDir) {
@@ -682,6 +682,63 @@ class BeatmapFetcher {
             return { success: true, message: `downloaded '${artist.toLowerCase()} - ${title.toLowerCase()}' (set #${sid})` };
         }
         return { success: false, message: `failed to download beatmap from all mirrors for set #${sid}.` };
+    }
+    async ensureBeatmapByQuery(query, diffHint, onProgress) {
+        // 1. Check if query points to an existing local file (.osz or .osu)
+        const home = process.env.HOME || process.env.USERPROFILE || '';
+        const resolvedPath = path.resolve(query.replace(/^~(?=$|\/|\\)/, home));
+        if (fs.existsSync(resolvedPath)) {
+            if (resolvedPath.toLowerCase().endsWith('.osz')) {
+                const dest = path.join(this.songsDir, path.basename(resolvedPath));
+                if (dest !== resolvedPath && !fs.existsSync(dest)) {
+                    fs.copyFileSync(resolvedPath, dest);
+                }
+                return { success: true, message: `loaded local beatmapset: ${path.basename(resolvedPath).toLowerCase()}` };
+            }
+            if (resolvedPath.toLowerCase().endsWith('.osu')) {
+                return { success: true, message: `loaded local .osu file: ${path.basename(resolvedPath).toLowerCase()}` };
+            }
+        }
+        // 2. Pure numeric Beatmap ID
+        const num = parseInt(query.trim(), 10);
+        if (!isNaN(num) && String(num) === query.trim()) {
+            if (onProgress) {
+                onProgress({ processName: 'fetch', percent: 0, log: `querying beatmap id #${num}...` });
+            }
+            const info = await this.fetchByBeatmapId(num);
+            if (info) {
+                const targetOsz = path.join(this.songsDir, `${info.beatmapSetId}.osz`);
+                const targetExtracted = path.join(this.songsDir, String(info.beatmapSetId));
+                if (fs.existsSync(targetOsz) || fs.existsSync(targetExtracted)) {
+                    return { success: true, info, message: `beatmap set #${info.beatmapSetId} is already present.` };
+                }
+                const downloaded = await this.downloadFromMirrors(info.beatmapSetId, targetOsz, onProgress);
+                if (downloaded) {
+                    return { success: true, info, message: `downloaded set #${info.beatmapSetId}` };
+                }
+            }
+        }
+        // 3. Fallback: Search mirror networks with metadata query
+        const meta = this.parseReplayFilename(query);
+        if (diffHint) {
+            meta.diff = diffHint;
+        }
+        if (onProgress) {
+            onProgress({ processName: 'fetch', percent: 0, log: `searching mirrors for: '${query.toLowerCase()}'...` });
+        }
+        const searchInfo = await this.searchMirrorWithMetadata(meta);
+        if (searchInfo) {
+            const targetOsz = path.join(this.songsDir, `${searchInfo.beatmapSetId}.osz`);
+            const targetExtracted = path.join(this.songsDir, String(searchInfo.beatmapSetId));
+            if (fs.existsSync(targetOsz) || fs.existsSync(targetExtracted)) {
+                return { success: true, info: searchInfo, message: `beatmap set #${searchInfo.beatmapSetId} is already present.` };
+            }
+            const downloaded = await this.downloadFromMirrors(searchInfo.beatmapSetId, targetOsz, onProgress);
+            if (downloaded) {
+                return { success: true, info: searchInfo, message: `downloaded '${searchInfo.title.toLowerCase()}' (set #${searchInfo.beatmapSetId})` };
+            }
+        }
+        return { success: false, message: `could not resolve or download beatmap for '${query.toLowerCase()}'.` };
     }
 }
 exports.BeatmapFetcher = BeatmapFetcher;

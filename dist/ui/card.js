@@ -45,6 +45,7 @@ exports.printStatus = printStatus;
 exports.renderProgress = renderProgress;
 exports.finishProgress = finishProgress;
 exports.printReplayCard = printReplayCard;
+exports.printAutoplayCard = printAutoplayCard;
 exports.printCompletionCard = printCompletionCard;
 exports.printErrorCard = printErrorCard;
 exports.printSkinsList = printSkinsList;
@@ -168,6 +169,56 @@ function printReplayCard(replayPath, replay, meta, ppResult) {
         console.log(boxedLine(`${theme_1.uiText.label((0, text_1.padRight)('star rating', 12))} ${theme_1.uiText.accent(`${ppResult.stars}★`)} ${theme_1.uiText.muted(`(aim: ${ppResult.aimStars}★ ${theme_1.glyphs.dot} speed: ${ppResult.speedStars}★)`)}`, width, theme_1.uiText.border, theme_1.uiText.border));
         console.log(boxedLine(`${theme_1.uiText.label((0, text_1.padRight)('performance', 12))} ${theme_1.uiText.focus(`${ppResult.totalPP} pp`)} ${theme_1.uiText.muted(`(aim: ${ppResult.aimPP} ${theme_1.glyphs.dot} speed: ${ppResult.speedPP} ${theme_1.glyphs.dot} acc: ${ppResult.accPP})`)}`, width, theme_1.uiText.border, theme_1.uiText.border));
         console.log(boxedLine(`${theme_1.uiText.label((0, text_1.padRight)('if 100% ss', 12))} ${theme_1.uiText.warning(`${ppResult.ssPP} pp`)} ${theme_1.uiText.muted(`(max combo: ${ppResult.maxCombo}x)`)}`, width, theme_1.uiText.border, theme_1.uiText.border));
+    }
+    console.log(borderLine(width, theme_1.glyphs.bottomLeft, theme_1.glyphs.bottomRight, theme_1.uiText.border));
+}
+function printAutoplayCard(options) {
+    const width = (0, text_1.terminalWidth)(92, 58);
+    const innerWidth = width - 4;
+    const halfCol = Math.floor((innerWidth - 3) / 2);
+    let beatmapTitle;
+    if (options.artist && options.title) {
+        beatmapTitle = `${options.artist} - ${options.title} [${options.diff}]`;
+    }
+    else if (options.title) {
+        beatmapTitle = `${options.title} [${options.diff}]`;
+    }
+    else if (options.beatmapId) {
+        beatmapTitle = `beatmap #${options.beatmapId} [${options.diff}]`;
+    }
+    else {
+        beatmapTitle = `beatmap [${options.diff}]`;
+    }
+    const maxTitleWidth = Math.max(20, innerWidth - 14);
+    const cleanTitle = (0, text_1.truncate)(beatmapTitle.toLowerCase(), maxTitleWidth);
+    // Top border in active blue (#3b82f6)
+    console.log(borderLine(width, theme_1.glyphs.topLeft, theme_1.glyphs.topRight, theme_1.uiText.activeBorder));
+    console.log(boxedLine(`${theme_1.uiText.accent('autoplay')} ${theme_1.uiText.subtle(theme_1.glyphs.dot)} ${theme_1.uiText.title(cleanTitle)}`, width, theme_1.uiText.activeBorder, theme_1.uiText.border));
+    console.log(boxedLine(`${theme_1.uiText.label('mode:')} ${theme_1.uiText.focus('autoplay / cursordance')}   ${theme_1.uiText.subtle(theme_1.glyphs.dot)}   ${theme_1.uiText.label('diff:')} ${theme_1.uiText.quietValue(options.diff.toLowerCase())}`, width, theme_1.uiText.activeBorder, theme_1.uiText.border));
+    // Divider between header and data
+    console.log(borderLine(width, theme_1.glyphs.teeLeft, theme_1.glyphs.teeRight, theme_1.uiText.border));
+    function printTwoCols(leftLabel, leftVal, rightLabel, rightVal) {
+        const col1 = `${theme_1.uiText.label((0, text_1.padRight)(leftLabel.toLowerCase(), 12))} ${leftVal}`;
+        const col2 = `${theme_1.uiText.label((0, text_1.padRight)(rightLabel.toLowerCase(), 12))} ${rightVal}`;
+        const paddedCol1 = (0, text_1.padRight)(col1, halfCol);
+        const divider = chalk_1.default.hex(theme_1.palette.border)(` ${theme_1.glyphs.vertical} `);
+        console.log(boxedLine(`${paddedCol1}${divider}${col2}`, width, theme_1.uiText.border, theme_1.uiText.border));
+    }
+    const artistStr = (0, text_1.truncate)(options.artist?.toLowerCase() || 'unknown', halfCol - 15);
+    const mapperStr = (0, text_1.truncate)(options.creator?.toLowerCase() || 'unknown', halfCol - 15);
+    printTwoCols('artist', theme_1.uiText.quietValue(artistStr), 'mapper', theme_1.uiText.quietValue(mapperStr));
+    const bidStr = options.beatmapId ? `#${options.beatmapId}` : '-';
+    const md5Short = options.beatmapMd5 ? (0, text_1.truncate)(options.beatmapMd5.toLowerCase(), halfCol - 15) : '-';
+    printTwoCols('beatmap id', theme_1.uiText.focus(bidStr), 'beatmap md5', theme_1.uiText.muted(md5Short));
+    const skinStr = (0, text_1.truncate)(options.skin?.toLowerCase() || 'default skin', halfCol - 15);
+    const resFpsStr = `${options.resolution[0]}x${options.resolution[1]} @ ${options.fps} fps`;
+    printTwoCols('skin', theme_1.uiText.accent(skinStr), 'render spec', theme_1.uiText.warning(resFpsStr));
+    // Performance Points section if available
+    if (options.ppResult) {
+        console.log(borderLine(width, theme_1.glyphs.teeLeft, theme_1.glyphs.teeRight, theme_1.uiText.border));
+        console.log(boxedLine(theme_1.uiText.section('beatmap metrics (2026 rework)'), width, theme_1.uiText.activeBorder, theme_1.uiText.border));
+        console.log(boxedLine(`${theme_1.uiText.label((0, text_1.padRight)('star rating', 12))} ${theme_1.uiText.accent(`${options.ppResult.stars}★`)} ${theme_1.uiText.muted(`(aim: ${options.ppResult.aimStars}★ ${theme_1.glyphs.dot} speed: ${options.ppResult.speedStars}★)`)}`, width, theme_1.uiText.border, theme_1.uiText.border));
+        console.log(boxedLine(`${theme_1.uiText.label((0, text_1.padRight)('if 100% ss', 12))} ${theme_1.uiText.warning(`${options.ppResult.ssPP} pp`)} ${theme_1.uiText.muted(`(max combo: ${options.ppResult.maxCombo}x)`)}`, width, theme_1.uiText.border, theme_1.uiText.border));
     }
     console.log(borderLine(width, theme_1.glyphs.bottomLeft, theme_1.glyphs.bottomRight, theme_1.uiText.border));
 }

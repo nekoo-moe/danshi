@@ -5,7 +5,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { spawn } from 'child_process';
-import { DanserConfigOptions } from './types';
+import { DanserConfigOptions, AutoplayRunOptions } from './types';
 import { printStatus, ProgressCallback } from './ui';
 
 export interface RenderResult {
@@ -195,11 +195,12 @@ export class DanserRenderer {
   }
 
   runRecord(
-    replayPath: string,
+    replayPath?: string | null,
     skinName?: string,
     verbose = false,
     onProgress?: ProgressCallback,
-    extraArgs: string[] = []
+    extraArgs: string[] = [],
+    autoplayOptions?: AutoplayRunOptions
   ): Promise<RenderResult> {
     return new Promise((resolve) => {
       const env = { ...process.env };
@@ -217,7 +218,30 @@ export class DanserRenderer {
         }
       }
 
-      const args = ['-record', '-preciseprogress', '-noupdatecheck', '-skip', '-replay', path.resolve(replayPath)];
+      const args = ['-record', '-preciseprogress', '-noupdatecheck', '-skip'];
+      if (autoplayOptions?.autoplay) {
+        if (autoplayOptions.diff) {
+          args.push('-difficulty', autoplayOptions.diff);
+        }
+        if (autoplayOptions.title) {
+          args.push('-title', autoplayOptions.title);
+        }
+        if (autoplayOptions.artist) {
+          args.push('-artist', autoplayOptions.artist);
+        }
+        if (autoplayOptions.creator) {
+          args.push('-creator', autoplayOptions.creator);
+        }
+        if (autoplayOptions.beatmapId) {
+          args.push('-id', String(autoplayOptions.beatmapId));
+        }
+        if (autoplayOptions.beatmapMd5 && !autoplayOptions.title) {
+          args.push('-md5', autoplayOptions.beatmapMd5);
+        }
+      } else if (replayPath) {
+        args.push('-replay', path.resolve(replayPath));
+      }
+
       if (skinName) {
         args.push('-skin', skinName);
       }

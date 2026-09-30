@@ -1,7 +1,7 @@
 /**
  * Danser Execution & Rendering module in TypeScript (Cross-Platform).
  */
-import { DanserConfigOptions } from './types';
+import { DanserConfigOptions, AutoplayRunOptions } from './types';
 import { ProgressCallback } from './ui';
 export interface RenderResult {
     exitCode: number;
@@ -16,6 +16,6 @@ export declare class DanserRenderer {
     static resolveDanserDir(userPath?: string): string;
     resolveDanserBinary(): string;
     configureSettings(options?: DanserConfigOptions): void;
-    runRecord(replayPath: string, skinName?: string, verbose?: boolean, onProgress?: ProgressCallback, extraArgs?: string[]): Promise<RenderResult>;
+    runRecord(replayPath?: string | null, skinName?: string, verbose?: boolean, onProgress?: ProgressCallback, extraArgs?: string[], autoplayOptions?: AutoplayRunOptions): Promise<RenderResult>;
 }
 //# sourceMappingURL=renderer.d.ts.map

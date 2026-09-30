@@ -223,6 +223,111 @@ export function printReplayCard(
   console.log(borderLine(width, glyphs.bottomLeft, glyphs.bottomRight, uiText.border));
 }
 
+export interface AutoplayCardOptions {
+  title?: string;
+  artist?: string;
+  creator?: string;
+  diff: string;
+  beatmapId?: number;
+  beatmapMd5?: string;
+  skin?: string;
+  resolution: [number, number];
+  fps: number;
+  ppResult?: PPResult | null;
+}
+
+export function printAutoplayCard(options: AutoplayCardOptions): void {
+  const width = terminalWidth(92, 58);
+  const innerWidth = width - 4;
+  const halfCol = Math.floor((innerWidth - 3) / 2);
+
+  let beatmapTitle: string;
+  if (options.artist && options.title) {
+    beatmapTitle = `${options.artist} - ${options.title} [${options.diff}]`;
+  } else if (options.title) {
+    beatmapTitle = `${options.title} [${options.diff}]`;
+  } else if (options.beatmapId) {
+    beatmapTitle = `beatmap #${options.beatmapId} [${options.diff}]`;
+  } else {
+    beatmapTitle = `beatmap [${options.diff}]`;
+  }
+
+  const maxTitleWidth = Math.max(20, innerWidth - 14);
+  const cleanTitle = truncate(beatmapTitle.toLowerCase(), maxTitleWidth);
+
+  // Top border in active blue (#3b82f6)
+  console.log(borderLine(width, glyphs.topLeft, glyphs.topRight, uiText.activeBorder));
+  console.log(
+    boxedLine(
+      `${uiText.accent('autoplay')} ${uiText.subtle(glyphs.dot)} ${uiText.title(cleanTitle)}`,
+      width,
+      uiText.activeBorder,
+      uiText.border
+    )
+  );
+  console.log(
+    boxedLine(
+      `${uiText.label('mode:')} ${uiText.focus('autoplay / cursordance')}   ${uiText.subtle(glyphs.dot)}   ${uiText.label('diff:')} ${uiText.quietValue(options.diff.toLowerCase())}`,
+      width,
+      uiText.activeBorder,
+      uiText.border
+    )
+  );
+  // Divider between header and data
+  console.log(borderLine(width, glyphs.teeLeft, glyphs.teeRight, uiText.border));
+
+  function printTwoCols(leftLabel: string, leftVal: string, rightLabel: string, rightVal: string) {
+    const col1 = `${uiText.label(padRight(leftLabel.toLowerCase(), 12))} ${leftVal}`;
+    const col2 = `${uiText.label(padRight(rightLabel.toLowerCase(), 12))} ${rightVal}`;
+    const paddedCol1 = padRight(col1, halfCol);
+    const divider = chalk.hex(palette.border)(` ${glyphs.vertical} `);
+    console.log(boxedLine(`${paddedCol1}${divider}${col2}`, width, uiText.border, uiText.border));
+  }
+
+  const artistStr = truncate(options.artist?.toLowerCase() || 'unknown', halfCol - 15);
+  const mapperStr = truncate(options.creator?.toLowerCase() || 'unknown', halfCol - 15);
+  printTwoCols('artist', uiText.quietValue(artistStr), 'mapper', uiText.quietValue(mapperStr));
+
+  const bidStr = options.beatmapId ? `#${options.beatmapId}` : '-';
+  const md5Short = options.beatmapMd5 ? truncate(options.beatmapMd5.toLowerCase(), halfCol - 15) : '-';
+  printTwoCols('beatmap id', uiText.focus(bidStr), 'beatmap md5', uiText.muted(md5Short));
+
+  const skinStr = truncate(options.skin?.toLowerCase() || 'default skin', halfCol - 15);
+  const resFpsStr = `${options.resolution[0]}x${options.resolution[1]} @ ${options.fps} fps`;
+  printTwoCols('skin', uiText.accent(skinStr), 'render spec', uiText.warning(resFpsStr));
+
+  // Performance Points section if available
+  if (options.ppResult) {
+    console.log(borderLine(width, glyphs.teeLeft, glyphs.teeRight, uiText.border));
+    console.log(
+      boxedLine(
+        uiText.section('beatmap metrics (2026 rework)'),
+        width,
+        uiText.activeBorder,
+        uiText.border
+      )
+    );
+    console.log(
+      boxedLine(
+        `${uiText.label(padRight('star rating', 12))} ${uiText.accent(`${options.ppResult.stars}★`)} ${uiText.muted(`(aim: ${options.ppResult.aimStars}★ ${glyphs.dot} speed: ${options.ppResult.speedStars}★)`)}`,
+        width,
+        uiText.border,
+        uiText.border
+      )
+    );
+    console.log(
+      boxedLine(
+        `${uiText.label(padRight('if 100% ss', 12))} ${uiText.warning(`${options.ppResult.ssPP} pp`)} ${uiText.muted(`(max combo: ${options.ppResult.maxCombo}x)`)}`,
+        width,
+        uiText.border,
+        uiText.border
+      )
+    );
+  }
+
+  console.log(borderLine(width, glyphs.bottomLeft, glyphs.bottomRight, uiText.border));
+}
+
 export function printCompletionCard(
   videoPath: string,
   resolution: [number, number],

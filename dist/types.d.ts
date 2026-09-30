@@ -50,4 +50,13 @@ export interface SystemPaths {
     outputDir: string;
     osuExportsDir: string;
 }
+export interface AutoplayRunOptions {
+    autoplay?: boolean;
+    diff?: string;
+    title?: string;
+    artist?: string;
+    creator?: string;
+    beatmapId?: number;
+    beatmapMd5?: string;
+}
 //# sourceMappingURL=types.d.ts.map

@@ -199,7 +199,7 @@ class DanserRenderer {
             (0, ui_1.printStatus)('config', `could not update danser config: ${e.message.toLowerCase()}`, 'warning');
         }
     }
-    runRecord(replayPath, skinName, verbose = false, onProgress, extraArgs = []) {
+    runRecord(replayPath, skinName, verbose = false, onProgress, extraArgs = [], autoplayOptions) {
         return new Promise((resolve) => {
             const env = { ...process.env };
             const bundledFfmpeg = path.join(this.danserDir, 'ffmpeg');
@@ -216,7 +216,30 @@ class DanserRenderer {
                     env.LD_LIBRARY_PATH = `${bundledFfmpeg}:${this.danserDir}:${env.LD_LIBRARY_PATH || ''}`;
                 }
             }
-            const args = ['-record', '-preciseprogress', '-noupdatecheck', '-skip', '-replay', path.resolve(replayPath)];
+            const args = ['-record', '-preciseprogress', '-noupdatecheck', '-skip'];
+            if (autoplayOptions?.autoplay) {
+                if (autoplayOptions.diff) {
+                    args.push('-difficulty', autoplayOptions.diff);
+                }
+                if (autoplayOptions.title) {
+                    args.push('-title', autoplayOptions.title);
+                }
+                if (autoplayOptions.artist) {
+                    args.push('-artist', autoplayOptions.artist);
+                }
+                if (autoplayOptions.creator) {
+                    args.push('-creator', autoplayOptions.creator);
+                }
+                if (autoplayOptions.beatmapId) {
+                    args.push('-id', String(autoplayOptions.beatmapId));
+                }
+                if (autoplayOptions.beatmapMd5 && !autoplayOptions.title) {
+                    args.push('-md5', autoplayOptions.beatmapMd5);
+                }
+            }
+            else if (replayPath) {
+                args.push('-replay', path.resolve(replayPath));
+            }
             if (skinName) {
                 args.push('-skin', skinName);
             }

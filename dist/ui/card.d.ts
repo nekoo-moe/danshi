@@ -10,6 +10,19 @@ export declare function printStatus(tag: string, message: string, type?: 'info' 
 export declare function renderProgress(tag: string, downloaded: number, total: number, unit?: string): void;
 export declare function finishProgress(): void;
 export declare function printReplayCard(replayPath: string, replay: Partial<ReplayMetadata>, meta?: FilenameMetadata, ppResult?: PPResult | null): void;
+export interface AutoplayCardOptions {
+    title?: string;
+    artist?: string;
+    creator?: string;
+    diff: string;
+    beatmapId?: number;
+    beatmapMd5?: string;
+    skin?: string;
+    resolution: [number, number];
+    fps: number;
+    ppResult?: PPResult | null;
+}
+export declare function printAutoplayCard(options: AutoplayCardOptions): void;
 export declare function printCompletionCard(videoPath: string, resolution: [number, number], fps: number, outputDir: string): void;
 export declare function printErrorCard(title: string, message: string, details?: string[]): void;
 export declare function printSkinsList(skins: string[]): void;

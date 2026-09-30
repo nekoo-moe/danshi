@@ -21,9 +21,13 @@ export declare class PPCalculator {
      */
     static calculate(osuFilePathOrContent: string | Buffer, replay: ReplayMetadata): PPResult | null;
     /**
+     * Calculates modern 2026 PP and Star Rating for a .osu beatmap directly (100% SS Max PP for autoplay/preview).
+     */
+    static calculateBeatmap(osuFilePathOrContent: string | Buffer): PPResult | null;
+    /**
      * Finds the .osu difficulty file in the Songs directory matching a beatmap MD5 or difficulty name.
      */
-    static findOsuFileInSongs(songsDir: string, beatmapMd5?: string, diffHint?: string): string | null;
+    static findOsuFileInSongs(songsDir: string, beatmapMd5?: string, diffHint?: string, titleHint?: string): string | null;
     /**
      * Extracts metadata (beatmap ID, set ID, title, artist, difficulty name) from a .osu file.
      */
@@ -32,6 +36,7 @@ export declare class PPCalculator {
         beatmapSetId?: number;
         title?: string;
         artist?: string;
+        creator?: string;
         diff?: string;
     };
 }

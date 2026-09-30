@@ -25,5 +25,10 @@ export declare class BeatmapFetcher {
         success: boolean;
         message: string;
     }>;
+    ensureBeatmapByQuery(query: string, diffHint?: string, onProgress?: ProgressCallback): Promise<{
+        success: boolean;
+        info?: BeatmapInfo;
+        message: string;
+    }>;
 }
 //# sourceMappingURL=fetcher.d.ts.map

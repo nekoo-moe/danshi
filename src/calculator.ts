@@ -77,9 +77,51 @@ export class PPCalculator {
   }
 
   /**
+   * Calculates modern 2026 PP and Star Rating for a .osu beatmap directly (100% SS Max PP for autoplay/preview).
+   */
+  static calculateBeatmap(osuFilePathOrContent: string | Buffer): PPResult | null {
+    try {
+      let content: Buffer;
+      if (typeof osuFilePathOrContent === 'string') {
+        if (!fs.existsSync(osuFilePathOrContent)) return null;
+        content = fs.readFileSync(osuFilePathOrContent);
+      } else {
+        content = osuFilePathOrContent;
+      }
+
+      const map = new Beatmap(content);
+      const ssPerf = new Performance({
+        mods: 0,
+      });
+      const ssResult = ssPerf.calculate(map);
+
+      return {
+        stars: Number(ssResult.difficulty.stars.toFixed(2)),
+        aimStars: Number((ssResult.difficulty.aim ?? 0).toFixed(2)),
+        speedStars: Number((ssResult.difficulty.speed ?? 0).toFixed(2)),
+        totalPP: Number(ssResult.pp.toFixed(2)),
+        aimPP: Number((ssResult.ppAim ?? 0).toFixed(2)),
+        speedPP: Number((ssResult.ppSpeed ?? 0).toFixed(2)),
+        accPP: Number((ssResult.ppAccuracy ?? 0).toFixed(2)),
+        flashlightPP: Number((ssResult.ppFlashlight ?? 0).toFixed(2)),
+        maxCombo: ssResult.difficulty.maxCombo ?? 0,
+        ssPP: Number(ssResult.pp.toFixed(2)),
+      };
+    } catch (e: any) {
+      printStatus('pp', `could not calculate beatmap metrics: ${e.message.toLowerCase()}`, 'warning');
+      return null;
+    }
+  }
+
+  /**
    * Finds the .osu difficulty file in the Songs directory matching a beatmap MD5 or difficulty name.
    */
-  static findOsuFileInSongs(songsDir: string, beatmapMd5?: string, diffHint?: string): string | null {
+  static findOsuFileInSongs(
+    songsDir: string,
+    beatmapMd5?: string,
+    diffHint?: string,
+    titleHint?: string
+  ): string | null {
     if (!fs.existsSync(songsDir)) return null;
 
     // 1. Unpack any .osz archive that hasn't been extracted yet
@@ -104,11 +146,15 @@ export class PPCalculator {
     }
 
     const cleanMd5 = (beatmapMd5 || '').toLowerCase().trim();
+    const cleanDiff = (diffHint || '').toLowerCase().trim();
+    const cleanTitle = (titleHint || '').toLowerCase().trim();
     let diffFallback: string | null = null;
 
     for (const entry of fs.readdirSync(songsDir)) {
       const fullPath = path.join(songsDir, entry);
       if (fs.statSync(fullPath).isDirectory()) {
+        const folderMatchesTitle = cleanTitle ? entry.toLowerCase().includes(cleanTitle) : false;
+
         for (const file of fs.readdirSync(fullPath)) {
           if (file.toLowerCase().endsWith('.osu')) {
             const osuP = path.join(fullPath, file);
@@ -122,8 +168,24 @@ export class PPCalculator {
               }
             } catch {}
 
-            if (diffHint && file.toLowerCase().includes(`[${diffHint.toLowerCase()}]`)) {
-              diffFallback = osuP;
+            if (cleanDiff) {
+              const fileLower = file.toLowerCase();
+              const filenameMatchesDiff = fileLower.includes(`[${cleanDiff}]`);
+
+              if (filenameMatchesDiff) {
+                if (folderMatchesTitle) {
+                  return osuP;
+                }
+                diffFallback = diffFallback || osuP;
+              } else {
+                const meta = PPCalculator.extractOsuMeta(osuP);
+                if (meta.diff && meta.diff.toLowerCase().trim() === cleanDiff) {
+                  if (folderMatchesTitle || (cleanTitle && meta.title && meta.title.toLowerCase().includes(cleanTitle))) {
+                    return osuP;
+                  }
+                  diffFallback = diffFallback || osuP;
+                }
+              }
             }
           }
         }
@@ -141,6 +203,7 @@ export class PPCalculator {
     beatmapSetId?: number;
     title?: string;
     artist?: string;
+    creator?: string;
     diff?: string;
   } {
     try {
@@ -150,6 +213,7 @@ export class PPCalculator {
       const sidMatch = content.match(/^BeatmapSetID:\s*(\d+)/m);
       const titleMatch = content.match(/^Title:\s*(.+)/m);
       const artistMatch = content.match(/^Artist:\s*(.+)/m);
+      const creatorMatch = content.match(/^Creator:\s*(.+)/m);
       const versionMatch = content.match(/^Version:\s*(.+)/m);
 
       return {
@@ -157,6 +221,7 @@ export class PPCalculator {
         beatmapSetId: sidMatch ? parseInt(sidMatch[1], 10) : undefined,
         title: titleMatch ? titleMatch[1].trim() : undefined,
         artist: artistMatch ? artistMatch[1].trim() : undefined,
+        creator: creatorMatch ? creatorMatch[1].trim() : undefined,
         diff: versionMatch ? versionMatch[1].trim() : undefined,
       };
     } catch {

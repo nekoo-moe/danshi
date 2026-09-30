@@ -148,7 +148,21 @@ danshi --import-skin "/path/to/skin.osk"
 danshi --sync-skins
 ```
 
-### 5. Verbose Diagnostic Mode
+### 5. Autoplay / Cursordance Mode
+Render beatmap gameplay using Danser's automated AI cursor dancing without needing an exported replay file (`.osr`). You can supply a song query, a Beatmap ID, a `.osz`/`.osu` file, or a replay file (to extract the beatmap):
+```bash
+# Render autoplay by song title and difficulty:
+danshi "Brain Power" --autoplay --diff "Overdrive"
+
+# Render autoplay by Beatmap ID:
+danshi 433005 --autoplay --diff "Overdrive"
+
+# Render autoplay using a replay file to extract the beatmap:
+danshi replay.osr --autoplay --diff "Insane"
+```
+> **Note**: The `--diff <diff>` option is strictly required whenever `--autoplay` is specified.
+
+### 6. Verbose Diagnostic Mode
 If you need to view raw `danser-go` stdout and stderr logs instead of the interactive status box:
 ```bash
 danshi replay.osr --verbose
@@ -160,9 +174,11 @@ danshi replay.osr --verbose
 
 | Option | Description | Default |
 | :--- | :--- | :--- |
-| `[replay]` | Path to target osu! replay file (`.osr`). If omitted, auto-picks the newest replay found in Downloads, Documents, Desktop, or osu! exports | *Auto-detected* |
+| `[replay]` | Path to target osu! replay file (`.osr`), beatmap (`.osz`/`.osu`), beatmap ID, or song title query | *Auto-detected* |
 | `-r, --resolution <res>` | Output resolution: `480p`, `720p`, `1080p`, `1440p` (2k), `4k`, or custom `WxH` (e.g. `1920x1080`) | `1080p` |
 | `--fps <fps>` | Output video framerate (e.g., `30`, `60`, `120`) | `60` |
+| `--autoplay` | Render beatmap with danser autoplay / cursordance mode instead of a replay | Disabled |
+| `--diff <diff>` | Target difficulty name of the beatmap (*required when using `--autoplay`*) | None |
 | `-s, --skin <skin>` | Skin keyword, local archive (`.osk`/`.zip`), folder path, or download URL | Default Skin |
 | `--import-skin <pathOrUrl>` | Import and unpack a skin into Danser without starting a render | None |
 | `-d, --danser-dir <path>` | Custom path to Danser installation directory | Auto-detected |
