@@ -143,6 +143,16 @@ export class DanserRenderer {
       cfg.Skin.Cursor.UseSkinCursor = useSkinCursor;
       cfg.Skin.Cursor.CursorRipples = true;
 
+      // Objects & Combo Colors
+      cfg.Objects = cfg.Objects || {};
+      cfg.Objects.Colors = cfg.Objects.Colors || {};
+      cfg.Objects.Colors.UseSkinComboColors = useSkinColors;
+      cfg.Objects.Colors.UseBeatmapComboColors = !useSkinColors;
+      if (useSkinColors) {
+        cfg.Objects.Colors.Color = cfg.Objects.Colors.Color || {};
+        cfg.Objects.Colors.Color.EnableRainbow = false;
+      }
+
       // Audio / Hitsounds
       cfg.Audio = cfg.Audio || {};
       cfg.Audio.IgnoreBeatmapSamples = useSkinHitsounds;
